@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Environment check: Node version, Chrome, a real headless launch, and web-font reachability.
+// Environment check: Node version, Chrome, a real headless launch, web-font reachability, and optional capabilities
+// (AI illustrations, video → transcript input).
 import { findChrome, launchBrowser, NO_CHROME_HELP, CACHE_DIR } from './lib/chrome.mjs';
 
 const out = { ok: true, node: process.versions.node, checks: [] };
@@ -36,6 +37,19 @@ try {
 // Optional: AI illustrations (illustrate.mjs). Not a failure when missing.
 const imgKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY ? 'Gemini' : process.env.OPENAI_API_KEY ? 'OpenAI' : '';
 out.checks.push({ name: 'ai-illustration', ok: true, detail: imgKey ? `可用：${imgKey}（可选功能）` : '未设置 GEMINI_API_KEY / OPENAI_API_KEY：不能生成 AI 插画（可选功能，其余不受影响）' });
+
+// Optional: video input (fetch.mjs turns Douyin / YouTube / Bilibili / local media into a transcript article).
+{
+  const { detectYtdlp, ffmpegOk } = await import('./lib/media/source.mjs');
+  const { detectVoice } = await import('./lib/video/voice.mjs');
+  const yt = detectYtdlp(), ff = ffmpegOk(), asr = detectVoice().whisper;
+  const parts = [
+    yt ? `yt-dlp ${yt.version}${yt.jsRuntimes ? '' : '（版本偏旧，YouTube 可能过不了 JS 校验：brew upgrade yt-dlp）'}` : '没有 yt-dlp：YouTube、B 站链接用不了（brew install yt-dlp）',
+    ff ? 'ffmpeg ✓' : '没有 ffmpeg：视频转音频用不了（brew install ffmpeg）',
+    asr ? `本地语音识别 ✓（${asr.model.split('/').pop()}）` : '没有本地语音识别：只能用平台字幕或 .srt / .vtt（Apple Silicon 上装 mlx-whisper 和 whisper-large-v3-turbo 模型）',
+  ];
+  out.checks.push({ name: 'video-input', ok: true, detail: `视频转逐字稿（可选功能）：${parts.join('；')}` });
+}
 
 out.cache = CACHE_DIR;
 console.log(JSON.stringify(out, null, 2));

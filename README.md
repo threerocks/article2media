@@ -2,11 +2,11 @@
 
 # article2media
 
-**把一篇文章，一键做成小红书图文、公众号排版和口播短视频。**
+**把一篇文章或一条视频，一键做成小红书图文、公众号排版和口播短视频。**
 
-开源 Claude Code / Codex Skill · 杂志长图 · 小红书卡片 · 公众号图文 · 竖屏口播视频 · 原文排版 · 白板论证 · 漫画
+开源 Claude Code / Codex Skill · 文章或视频进 · 杂志长图 · 小红书卡片 · 公众号图文 · 竖屏口播视频 · 原文排版 · 白板论证 · 漫画
 
-[![version](https://img.shields.io/badge/version-1.5.0-1f6feb)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.6.0-1f6feb)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-2ea043)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A5%2022-339933)](#依赖)
 [![npm deps](https://img.shields.io/badge/npm%20dependencies-0-2ea043)](#设计原则)
@@ -15,9 +15,11 @@
 
 </div>
 
-**article2media** 是一个开源的 Claude Code / Codex Skill，同时也是 Claude Code 插件。它把一篇文章做成可以直接发布的中文视觉内容。
+**article2media** 是一个开源的 Claude Code / Codex Skill，同时也是 Claude Code 插件。它把一篇文章或一条视频做成可以直接发布的中文视觉内容。
 
-- **输入**：X（Twitter）长文、网页、微信公众号文章，或本地 Markdown。
+- **输入**：
+  - 文章：X（Twitter）长文、网页、微信公众号文章，或本地 Markdown；
+  - 视频：抖音、YouTube、B 站链接，本地视频或音频，`.srt` / `.vtt` 字幕。视频先转成逐字稿文章。
 - **产出**：杂志风长图、小红书 3:4 图文卡片、可直接粘贴的公众号排版、带本地 AI 配音和逐字字幕的竖屏口播视频，以及原文全文排版、白板论证图和黑白漫画。
 - **验收**：每种产出都自动检查，不合格就报错。
 - **依赖**：只需要 Node.js 22 和 Chrome。
@@ -42,6 +44,7 @@ article2media 把这件事交给 AI。你给一个链接，流程分三步：
 
 | | |
 |---|---|
+| **文章和视频都能当原文** | 视频先转成逐字稿文章：人工字幕优先，其次平台的原语言自动字幕，都没有时用本地 Whisper 识别。繁体转简体、专有名词纠错、时间轴都会处理好，后面的流程和文章完全一样。 |
 | **先读懂，再排版** | 不是截图，也不是机械摘要。Claude 规划结构、改写标题、挑选图表、核对数字，产出只含内容的 `content.json`。版式和主题由脚本负责，换风格不用重写内容。 |
 | **一份内容，七种产出** | 长图、卡片（3:4 / 4:5 / 1:1 / 9:16）、公众号、口播视频、原文全文、白板论证、漫画。21 套主题对所有图文产出通用，口播视频沿用主题的配色、字体和卡片样式。 |
 | **每种产出都有验收** | 版面检查溢出、截断和重叠。全文模式逐块读回比对原文，改一个字就失败。白板模式要求每段原文都有去向。视频审片检查首句时长、画面静止、语速、字幕闪断和响度。不合格就以非零码退出。 |
@@ -71,6 +74,7 @@ node ~/.claude/skills/article2media/scripts/video.mjs doctor  # 配音、逐字�
 /article2media https://example.com/post 小红书
 /article2media ./notes.md 公众号
 /article2media https://x.com/… 做成口播视频
+/article2media https://www.bilibili.com/video/BV… 小红书     # 视频进，图文出
 ```
 
 产出写在当前目录的 `article2media-out/<slug>/` 下。Codex 里用 `$article2media` 调用。
@@ -87,7 +91,7 @@ node ~/.claude/skills/article2media/scripts/video.mjs doctor  # 配音、逐字�
 | **白板论证** | 一条纵向推理主干：问题、前提、证据、矛盾、转折、结论；每段原文都有去向 | 看清作者怎么得出结论 | `-w` | 白板 |
 | **漫画** | 黑白分镜，角色前后一致，对白全部用 HTML 排版；附 3:4 卡片 | 用一个故事讲清一个机制 | `-c` | 黑白漫画 |
 
-可以输入 X 长文、帖子或线程，任意网页，微信公众号文章，本地 Markdown 或文本文件，也可以直接粘贴正文。英文原文默认改写成中文，需要英文产出时加 `--lang en`。没有提比例或平台时出长图；没有指定风格时，Claude 按内容选一个主题，交付时说明理由。
+可以输入 X 长文、帖子或线程，任意网页，微信公众号文章，本地 Markdown 或文本文件，也可以直接粘贴正文；视频见下一节。英文原文默认改写成中文，需要英文产出时加 `--lang en`。没有提比例或平台时出长图；没有指定风格时，Claude 按内容选一个主题，交付时说明理由。
 
 ```
 /article2media https://example.com/post --style midnight     # 指定主题
@@ -99,11 +103,44 @@ node ~/.claude/skills/article2media/scripts/video.mjs doctor  # 配音、逐字�
 /article2media https://x.com/… -c                            # 漫画（需要出图能力）
 ```
 
+## 视频当原文
+
+给一个视频链接或视频文件，`fetch.mjs` 会先把它转成逐字稿文章 `article.md`，时间轴另存在 `transcript/segments.md`。之后要长图、卡片、公众号、口播视频还是漫画，和文章一模一样。
+
+```
+/article2media https://www.bilibili.com/video/BV1NprhBPEtR 小红书
+/article2media "7.94 复制打开抖音，看看【…】 https://v.douyin.com/…/"     # 整段分享口令也行
+/article2media ./访谈录音.m4a 公众号
+/article2media ./talk.srt -f
+```
+
+| 来源 | 文字从哪来 |
+|---|---|
+| YouTube | 人工字幕 → 原语言自动字幕（不用机器翻译的字幕轨）→ 本地语音识别 |
+| B 站 | 人工字幕 / AI 字幕 → 本地语音识别 |
+| 抖音 | 下载视频（优先无水印地址）→ 本地语音识别 |
+| 本地视频 / 音频 | 本地语音识别 |
+| `.srt` / `.vtt` | 直接解析 |
+
+- **本地语音识别**：用 mlx-whisper 和 whisper-large-v3-turbo，在 Apple Silicon 上运行。实测 6 分钟的 B 站视频 16 秒转完，14 分钟的视频 29 秒转完。
+- **清理**：
+  - 繁体转简体（内置 OpenCC 字表）；
+  - 半角标点改全角；
+  - 去掉 Whisper 在静音处编出的套话和重复循环；
+  - YouTube 自动字幕的滚动重复会去掉。
+- **分段**：在句末停顿处分自然段，只补标点，不改字。
+- **专有名词**：识别前用 `--prompt "人名 术语"` 提示，识别后用 `--terms 词表.txt` 替换，词表每行写 `错词=>正词`。
+- **浏览器 cookie**：有的网络下 YouTube 要求登录确认，抖音也会要求浏览器 cookie。这时脚本会提示两个办法：
+  - 你同意复用本机浏览器状态时，加 `--cookies-from-browser chrome`；
+  - 把视频保存到本地，直接传文件。
+
+细节见 [`references/video-input.md`](skills/article2media/references/video-input.md)。
+
 ## 工作原理
 
 ```mermaid
 flowchart LR
-  IN["链接 / 文件 / 正文"] --> F["fetch.mjs<br/>抓取为 article.md"]
+  IN["文章 / 视频链接<br/>文件 / 正文"] --> F["fetch.mjs<br/>抓取或转逐字稿<br/>→ article.md"]
   F --> AI["Claude<br/>读懂 · 规划 · 改写 · 核对"]
   AI --> C["content.json"] --> R["render.mjs<br/>长图 · 卡片 · 公众号"]
   AI --> V["video.json"] --> VM["video.mjs<br/>配音 · 对齐 · 动画 · 混音"]
@@ -115,7 +152,8 @@ flowchart LR
 - **抓取**：
   - X 走 FxTwitter API，不用登录；
   - 网页依次尝试 r.jina.ai、defuddle.md、本地 Chrome；
-  - 公众号用本地 Chrome。
+  - 公众号用本地 Chrome；
+  - 视频：字幕用 yt-dlp 获取，没有字幕时用本地 Whisper 识别。
 - **分工**：Claude 负责理解和写作，产出只含内容和结构的 JSON；脚本负责一切确定性的工作：排版、截图、配音、对齐、混音和验收。
 - **渲染**：内容、版式 CSS 和主题 CSS 合成 HTML，再通过 DevTools 协议驱动无头 Chrome 截图，输出 2 倍分辨率。
 - **图表**：15 种参数化图表，包括柱状、条形、堆叠、流程、矩阵、合流、树、数据、等式、路径、对比、循环、金句、图片和手写 SVG，颜色全部取自主题。另有可选的 AI 插画。
@@ -124,7 +162,7 @@ flowchart LR
 
 - **内容与风格分离**：主题只是一组 CSS 变量加少量结构覆盖，换主题只需重新渲染。
 - **零 npm 依赖**：只用 Node 22 内置的 WebSocket 和 fetch，直接驱动本机已有的 Chrome。
-- **能力探测，不强求**：出图（Codex CLI → OpenAI → Gemini）、本地配音（VoxCPM2 → edge-tts → 系统语音）和逐字对齐（Whisper）都是先探测再选用。
+- **能力探测，不强求**：出图（Codex CLI → OpenAI → Gemini）、本地配音（VoxCPM2 → edge-tts → 系统语音）、逐字对齐和视频转写（Whisper）、视频字幕（yt-dlp）都是先探测再选用。
 - **图里不放字**：生成的图片不含文字，所有文字都由 HTML 排版，所以可校验、可修改、不会出现乱码。
 
 ## 主题
@@ -306,6 +344,19 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 - **素材匹配类视频工具**：按文案从素材库配画面。article2media 的画面来自原文本身的结构，包括数字、清单、对比和金句，并且在口播说到时出现。
 - **多种产出**：一次理解，同时得到长图、卡片、公众号和视频，每种都有自动验收。
 
+### 能把抖音、B 站、YouTube 视频做成小红书图文吗？
+
+能。直接给链接，比如 `/article2media https://www.bilibili.com/video/BV… 小红书`；抖音整段分享口令也可以。
+
+1. 视频先转成逐字稿文章：有字幕用字幕，没有就用本地 Whisper 识别。
+2. 之后和文章一样，改写成卡片、长图、公众号或口播视频，来源署原视频作者。
+
+### 视频没有字幕怎么办？
+
+- **有本地 Whisper**（Apple Silicon 上装 mlx-whisper 和 whisper-large-v3-turbo 模型）：自动识别。实测 14 分钟的视频 29 秒转完。
+- **没有本地 Whisper**：可以提供 `.srt` / `.vtt` 字幕文件。
+- **人名、术语识别错了**：用 `--prompt` 提示，或用 `--terms` 替换。
+
 ### 支持英文文章吗？
 
 支持。英文原文默认改写成中文产出（示例用的就是一篇英文 X 长文），需要英文产出时加 `--lang en`。原文全文排版（`-f`）保留原文语言，一字不改。
@@ -350,7 +401,8 @@ rsync -a ~/code/article2media/skills/ ~/.agents/skills/     # Codex
 | ffmpeg | 口播视频 |
 | 可选：Codex CLI（`codex login`），或 OpenAI / Gemini 付费 key | AI 插画、视频封面插画、漫画 |
 | 可选：Apple Silicon + mlx-audio + VoxCPM2 | 最自然的本地配音；没有时用 edge-tts 或系统语音 |
-| 可选：mlx-whisper | 逐字对齐；没有时用 edge-tts 的词边界，或按字数估算 |
+| 可选：mlx-whisper | 逐字对齐，以及没有字幕的视频转写；对齐缺它时用 edge-tts 的词边界或按字数估算 |
+| 可选：yt-dlp | YouTube、B 站的字幕和音频；抖音的兜底 |
 
 `bash scripts/install.sh` 会逐项检查，只告诉你缺什么、怎么装，不会自动下载。找不到 Chrome 时，可以安装 Google Chrome、运行 `npx playwright install chromium`，或者设置 `ARTICLE2MEDIA_CHROME=/path/to/chrome`。
 
@@ -360,6 +412,8 @@ rsync -a ~/code/article2media/skills/ ~/.agents/skills/     # Codex
 ```bash
 S=skills/article2media/scripts
 node $S/fetch.mjs "https://x.com/…/status/…"                          # → article2media-out/<slug>/article.md
+node $S/fetch.mjs "https://www.bilibili.com/video/BV…"                # 视频 → 逐字稿文章（抖音、YouTube、本地视频 / 音频、.srt 同理）
+node $S/fetch.mjs ./talk.mp4 --prompt "人名 术语" --terms terms.txt   # 专有名词提示与纠错
 node $S/render.mjs <slug>/content.json --check                        # 只校验内容
 node $S/render.mjs <slug>/content.json --theme all                    # 全部主题
 node $S/render.mjs <slug>/content.json --ratio 3:4                    # 卡片：3:4 / 4:5 / 1:1 / 9:16
@@ -389,9 +443,9 @@ node $S/render.mjs --list                                             # 列出�
 ```
 skills/article2media/
 ├── SKILL.md                 # 工作流（Claude 读这个）
-├── references/              # 写作、content.json 格式、图表、风格、小红书、公众号、视频、三种模式
+├── references/              # 写作、content.json 格式、图表、风格、小红书、公众号、视频输入与口播视频、三种模式
 ├── scripts/                 # fetch / render / illustrate / video / comic / doctor
-│   └── lib/                 # chrome（CDP 驱动）、各版式、校验、出图；video/（配音、对齐、镜头、渲染、字幕）
+│   └── lib/                 # chrome（CDP 驱动）、各版式、校验、出图；media/（视频转逐字稿）；video/（配音、对齐、镜头、渲染、字幕）
 ├── layouts/                 # 各版式的结构 CSS
 ├── themes/                  # 21 个主题 CSS；illustration-styles.json、caption-styles.json
 ├── assets/voices/           # 7 款公开音色（catalog.json）
@@ -415,7 +469,7 @@ node tests/theme-sheet.mjs                      # 重新生成 docs/themes.jpg
 claude plugin validate .
 ```
 
-通过标准是所有检查都显示 ✓，且每次渲染 0 个版面错误。在本仓库开发时的约定见 [`CLAUDE.md`](CLAUDE.md)，版本历史见 [`CHANGELOG.md`](CHANGELOG.md)，设计取舍和踩过的坑见[《article2media：给它一篇文章，拿回一整套能发的图文和视频》](docs/introducing-article2media.md)。
+通过标准是所有检查都显示 ✓，且每次渲染 0 个版面错误。在本仓库开发时的约定见 [`CLAUDE.md`](CLAUDE.md)，版本历史见 [`CHANGELOG.md`](CHANGELOG.md)，设计取舍和踩过的坑见[《article2media：给它一篇文章或一条视频，拿回一整套能发的图文和视频》](docs/introducing-article2media.md)。
 
 ## 路线图
 
@@ -424,6 +478,7 @@ claude plugin validate .
 - [x] 口播视频：本地配音、逐字同步、语速与字幕质检
 - [x] 原文全文排版、白板论证、漫画
 - [x] 按版权分层的音色库
+- [x] 视频当原文：抖音、YouTube、B 站、本地视频 / 音频、字幕文件 → 逐字稿文章
 - [ ] 视频背景音乐（本地 AI 作曲目前太重，暂缓）
 - [ ] 超长页自动拆图
 - [ ] X 登录态兜底（FxTwitter 不可用时）
@@ -432,7 +487,7 @@ claude plugin validate .
 
 **article2media** (formerly article2img) is an open-source Claude Code / Codex skill and Claude Code plugin that turns one article into publish-ready Chinese visual content.
 
-- **Input:** an X/Twitter post or thread, a web page, a WeChat article, or a Markdown file.
+- **Input:** an X/Twitter post or thread, a web page, a WeChat article, a Markdown file, or a video: Douyin, YouTube or Bilibili links, local video and audio files, `.srt` / `.vtt` subtitles. A video is first turned into a verbatim transcript article, from platform subtitles when available and local Whisper otherwise.
 - **Output:**
   - magazine-style long images;
   - Xiaohongshu (RedNote) 3:4 carousel cards;
@@ -448,7 +503,8 @@ claude plugin validate .
 
 - **[ljg-skills](https://github.com/lijigang/ljg-skills)（MIT）**：`-f`、`-w`、`-c` 三种模式和它们的校验纪律都来自这里，本项目在自己的架构上重写了实现。
 - **主题灵感**：aps 主题库、lanshu-html-ppt-templates 的版式手法，以及 Canva、Pinterest Predicts、小红书 2026 年的趋势报告。这些都只借鉴思路，CSS 全部重新编写。
-- **模型与服务**：VoxCPM2、mlx-audio、Whisper（mlx-whisper）、edge-tts、FxTwitter、r.jina.ai、defuddle。
+- **模型与服务**：VoxCPM2、mlx-audio、Whisper（mlx-whisper）、edge-tts、yt-dlp、FxTwitter、r.jina.ai、defuddle。
+- **繁简转换**：字表取自 [OpenCC](https://github.com/BYVoid/OpenCC)（Apache License 2.0）。
 - **字体**：思源宋体与思源黑体、站酷系列、霞鹜文楷、京华老宋体、得意黑、缝合像素、龙藏体。
 
 ## 许可

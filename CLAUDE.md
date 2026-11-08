@@ -4,7 +4,7 @@ Guidance for Claude Code when working on this repository (not when using the ski
 
 ## Overview
 
-A skills repository. Each skill is a self-contained directory under `skills/`, installable on its own into Claude Code (`~/.claude/skills/`) or Codex (`~/.agents/skills/`), and the whole repo is also a Claude Code plugin (`.claude-plugin/`). Today there is one skill, `article2media`: articles → Chinese visual content in 7 layouts with 21 themes.
+A skills repository. Each skill is a self-contained directory under `skills/`, installable on its own into Claude Code (`~/.claude/skills/`) or Codex (`~/.agents/skills/`), and the whole repo is also a Claude Code plugin (`.claude-plugin/`). Today there is one skill, `article2media`: articles or videos (turned into a transcript first) → Chinese visual content in 7 layouts with 21 themes.
 
 ## Repository structure
 
@@ -16,7 +16,7 @@ article2media/
 │       ├── SKILL.md         # frontmatter: name, description (trigger phrases), argument-hint, allowed-tools, version
 │       ├── agents/openai.yaml   # Codex display name + default prompt
 │       ├── references/      # read on demand by the model (writing, schema, figures, styles, xhs, wechat, video, mode-*)
-│       ├── scripts/         # Node 22 CLIs, zero npm deps: fetch, render, illustrate, video, comic, doctor; lib/
+│       ├── scripts/         # Node 22 CLIs, zero npm deps: fetch, render, illustrate, video, comic, doctor; lib/ (media/ = video → transcript)
 │       ├── layouts/         # structure CSS per layout; themes/ restyle them through CSS variables
 │       ├── themes/          # 21 themes, one CSS file each (first-line comment = name | description); illustration-styles.json, caption-styles.json
 │       ├── assets/voices/   # VoxCPM2 designed voices (catalog.json)
@@ -30,9 +30,18 @@ article2media/
 ## Architecture
 
 - **Content and style are separate.** The model writes `content.json` (structure only); `render.mjs` combines it with a layout CSS and a theme CSS and screenshots headless Chrome via the DevTools protocol (`scripts/lib/chrome.mjs`). Themes are CSS variables plus small structural overrides, loaded last.
+- **Input:** `fetch.mjs` turns every source into `article.md`.
+  - Articles: X via FxTwitter, web pages, WeChat, local files.
+  - Videos go through `lib/media/`:
+    - Douyin share page → yt-dlp fallback;
+    - YouTube and Bilibili subtitles via yt-dlp (manual, then original-language auto);
+    - otherwise local Whisper ASR on the audio;
+    - `.srt` / `.vtt` files are parsed directly.
+
+    A video becomes a verbatim transcript article, with timestamps in `transcript/`. The pure helpers live in `lib/media/transcript.mjs` and are tested offline.
 - **Layouts:** `long` (default), `card` (`--ratio`), `wechat` (inline-styled paste-ready HTML), `full` (`-f`, verbatim original text — driven by `article.md`, not content.json), `whiteboard` (`-w`, driven by `whiteboard.json` + a source inventory), `comic` (`comic.mjs`, generated panels + HTML lettering), and video (`video.mjs`, its own `video.json`).
 - **Every layout has its own verification**, and a render fails (exit 1) on errors: layout QA (overflow, clipping, overlaps), the full-text block ledger (DOM text must equal the source block for block), the whiteboard ledger (every source paragraph rendered or omitted with a reason), comic lettering bounds, video safe areas and timing checks.
-- **Optional capabilities are detected, never required:** image generation (`lib/imagegen.mjs`: Codex CLI → OpenAI → Gemini), local voice (VoxCPM2 via mlx-audio), Whisper alignment, edge-tts. Missing ones degrade gracefully or stop with a clear message; nothing is installed or downloaded implicitly.
+- **Optional capabilities are detected, never required:** image generation (`lib/imagegen.mjs`: Codex CLI → OpenAI → Gemini), local voice (VoxCPM2 via mlx-audio), Whisper alignment and video transcription, edge-tts, yt-dlp for video subtitles. Missing ones degrade gracefully or stop with a clear message; nothing is installed or downloaded implicitly.
 
 ## Conventions
 

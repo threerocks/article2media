@@ -1,14 +1,19 @@
 #!/usr/bin/env node
-// Fetch an article (X/Twitter post or long-form article, web page, WeChat article, or local file)
+// Fetch an article (X/Twitter post or long-form article, web page, WeChat article, or local file) — or a video
+// (Douyin, YouTube, Bilibili, a local video/audio file, an .srt/.vtt file) turned into a verbatim transcript —
 // and save it as Markdown with YAML front matter.
 //
-//   node fetch.mjs <url|file> [--out DIR] [--no-proxy]
+//   node fetch.mjs <url|file|分享口令> [--out DIR] [--no-proxy]
+//   video options: [--lang auto|zh|en] [--terms terms.txt] [--prompt "人名 术语"] [--cookies-from-browser chrome] [--keep-video] [--force]
+//   any source:    [--title "标题"] [--author "作者"]
 //
-// Output: DIR/article.md and DIR/meta.json; prints a JSON summary to stdout.
+// Output: DIR/article.md and DIR/meta.json (videos also DIR/transcript/); prints a JSON summary to stdout.
 import fs from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { launchBrowser } from './lib/chrome.mjs';
+import { detectVideoInput } from './lib/media/transcript.mjs';
+import { fetchVideo } from './lib/media/source.mjs';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
@@ -18,12 +23,32 @@ const { values: opt, positionals } = parseArgs({
   options: {
     out: { type: 'string' },
     'no-proxy': { type: 'boolean', default: false },
+    lang: { type: 'string', default: 'auto' },
+    terms: { type: 'string' },
+    prompt: { type: 'string' },
+    'cookies-from-browser': { type: 'string' },
+    'keep-video': { type: 'boolean', default: false },
+    force: { type: 'boolean', default: false },
+    title: { type: 'string' },
+    author: { type: 'string' },
     help: { type: 'boolean', short: 'h' },
   },
 });
 
 if (opt.help || !positionals[0]) {
-  console.error('用法：node fetch.mjs <url|文件> [--out 目录] [--no-proxy]');
+  console.error([
+    '用法：node fetch.mjs <url|文件|分享口令> [--out 目录] [--no-proxy]',
+    '',
+    '文章：X 长文 / 帖子 / 线程、网页、微信公众号、本地 Markdown / 文本',
+    '视频（转成逐字稿文章）：抖音、YouTube、B 站链接，本地视频 / 音频，.srt / .vtt 字幕',
+    '  --lang auto|zh|en              语音识别语言（抖音、B 站默认 zh）',
+    '  --terms 词表.txt               识别后替换：每行 错词=>正词',
+    '  --prompt "人名 术语"           提示 Whisper 的专有名词',
+    '  --cookies-from-browser chrome  复用本机浏览器登录态（只在用户同意时用）',
+    '  --keep-video                   保留下载的 MP4（截图用）',
+    '  --force                        重新下载、重新识别',
+    '  --title "标题" --author "作者"  覆盖标题和作者（本地视频只能从文件名取标题时用）',
+  ].join('\n'));
   process.exit(opt.help ? 0 : 2);
 }
 
@@ -357,8 +382,14 @@ function slugify(meta) {
 const yamlStr = (v) => JSON.stringify(String(v ?? ''));
 
 try {
-  let result;
-  if (fs.existsSync(input)) result = await fetchLocal(input);
+  let result, outDir;
+  const video = detectVideoInput(input, { isFile: fs.existsSync(input) });
+  if (video) {
+    if (opt.terms && !fs.existsSync(opt.terms)) throw new Error(`词表文件不存在：${opt.terms}`);
+    const r = await fetchVideo(video, { out: opt.out, lang: opt.lang, terms: opt.terms, prompt: opt.prompt, cookies: opt['cookies-from-browser'], keepVideo: opt['keep-video'], force: opt.force, log });
+    result = { meta: r.meta, body: r.body };
+    outDir = r.outDir;
+  } else if (fs.existsSync(input)) result = await fetchLocal(input);
   else {
     let url;
     try { url = new URL(input); } catch { throw new Error(`既不是存在的文件，也不是合法 URL：${input}`); }
@@ -367,15 +398,18 @@ try {
     else result = await fetchWeb(url);
   }
   const { meta, body } = result;
+  if (opt.title) meta.title = opt.title;
+  if (opt.author) meta.author = opt.author;
   meta.fetched_at = new Date().toISOString();
   meta.chars = body.replace(/\s/g, '').length;
   meta.words = (body.match(/[A-Za-z0-9’'-]+/g) || []).length;
   meta.cjk = (body.match(/[一-鿿]/g) || []).length;
 
-  const outDir = path.resolve(opt.out || path.join('article2media-out', slugify(meta)));
+  outDir ||= path.resolve(opt.out || path.join('article2media-out', slugify(meta)));
   fs.mkdirSync(outDir, { recursive: true });
-  const fmKeys = ['title', 'author', 'handle', 'platform', 'date', 'url', 'cover', 'fetcher'];
-  const fm = fmKeys.filter((k) => meta[k]).map((k) => `${k}: ${yamlStr(meta[k])}`).join('\n');
+  const fmKeys = ['title', 'author', 'handle', 'platform', 'date', 'url', 'cover', 'duration', 'transcript', 'fetcher'];
+  const fmVal = (k) => (k === 'duration' ? `${Math.floor(meta.duration / 60)}:${String(meta.duration % 60).padStart(2, '0')}` : meta[k]);
+  const fm = fmKeys.filter((k) => meta[k]).map((k) => `${k}: ${yamlStr(fmVal(k))}`).join('\n');
   const md = `---\n${fm}\n---\n\n${meta.title ? `# ${meta.title}\n\n` : ''}${body.trim()}\n`;
   fs.writeFileSync(path.join(outDir, 'article.md'), md);
   fs.writeFileSync(path.join(outDir, 'meta.json'), JSON.stringify(meta, null, 2));
@@ -388,6 +422,7 @@ try {
     platform: meta.platform,
     date: meta.date,
     fetcher: meta.fetcher,
+    ...(meta.transcript ? { transcript: meta.transcript, segments: meta.segments, timeline: path.join(outDir, 'transcript', 'segments.md') } : {}),
     words: meta.words,
     cjk_chars: meta.cjk,
   }, null, 2));

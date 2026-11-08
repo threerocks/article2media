@@ -1,14 +1,14 @@
 ---
 name: article2media
-description: 把任意文章（X/Twitter 长文、帖子与线程，网页，微信公众号，本地 Markdown/文本）改写成中文总结图：默认是杂志风格的多页长图（每节配图表和数据面板，附执行清单）；指定比例或平台（小红书 3:4、Instagram 4:5、方图 1:1、竖屏 9:16）时输出固定比例卡片组（封面 + 每节一卡 + 要点总结，附发帖文案）；说"公众号"时输出可直接粘贴进公众号编辑器的图文排版（含头图）；说"视频/口播/抖音/视频号"时输出 1080×1920 竖屏讲解视频（配音、逐字同步的动画、字幕、封面）；另有三种模式：-f 原文一字不改的全文排版（逐块校验）、-w 白板论证（把推理过程摊成一条纵向主干）、-c 黑白漫画（生成分镜 + HTML 对白，附 3:4 卡片）。21 种视觉风格（杂志、极简、深色科技、国潮、新中式、备忘录、像素、Y2K、电影感等），不指定时按内容自动选择；可选 AI 插画（封面和配图，按主题画风生成）。Use when the user wants to turn an article, URL or long post into summary images, infographic pages, 总结图, 长图, 知识卡片, 小红书图文/轮播卡片, 公众号排版, 口播视频/短视频, 原文排版/全文卡片, 白板/论证图, 漫画, or says "把这篇文章做成图/视频".
-argument-hint: <url|文件|粘贴的正文> [-l 长图|-f 全文|-w 白板|-c 漫画] [--ratio 3:4|4:5|1:1|9:16 或 小红书/IG] [公众号] [视频] [--style 主题名|all] [--illustrate] [--pages N] [--lang zh|en] [--verify]
+description: 把任意文章或视频改写成中文视觉内容。文章：X/Twitter 长文、帖子与线程，网页，微信公众号，本地 Markdown/文本；视频：抖音、YouTube、B 站链接，本地视频/音频，.srt/.vtt 字幕，先转成逐字稿文章（平台字幕优先，没有字幕时本地 Whisper 识别）。产出：默认是杂志风格的多页长图（每节配图表和数据面板，附执行清单）；指定比例或平台（小红书 3:4、Instagram 4:5、方图 1:1、竖屏 9:16）时输出固定比例卡片组（封面 + 每节一卡 + 要点总结，附发帖文案）；说"公众号"时输出可直接粘贴进公众号编辑器的图文排版（含头图）；说"做成视频/口播/视频号"时输出 1080×1920 竖屏讲解视频（配音、逐字同步的动画、字幕、封面）；另有三种模式：-f 原文一字不改的全文排版（逐块校验）、-w 白板论证（把推理过程摊成一条纵向主干）、-c 黑白漫画（生成分镜 + HTML 对白，附 3:4 卡片）。21 种视觉风格（杂志、极简、深色科技、国潮、新中式、备忘录、像素、Y2K、电影感等），不指定时按内容自动选择；可选 AI 插画（封面和配图，按主题画风生成）。Use when the user wants to turn an article, URL or long post into summary images, infographic pages, 总结图, 长图, 知识卡片, 小红书图文/轮播卡片, 公众号排版, 口播视频/短视频, 原文排版/全文卡片, 白板/论证图, 漫画, or gives a video link (抖音 / B 站 / YouTube) or a video/audio file to turn into 图文 or a transcript (视频转图文、视频转文字、逐字稿), or says "把这篇文章做成图/视频" / "把这个视频做成小红书".
+argument-hint: <url|视频链接|文件|粘贴的正文> [-l 长图|-f 全文|-w 白板|-c 漫画] [--ratio 3:4|4:5|1:1|9:16 或 小红书/IG] [公众号] [视频] [--style 主题名|all] [--illustrate] [--pages N] [--lang zh|en] [--verify]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "1.5.0"
+version: "1.6.0"
 ---
 
 # article2media：文章 → 图文与口播视频
 
-把一篇文章**重组**成 1–4 张杂志风格的长图（默认），或一组固定比例的卡片。分工如下：
+把一篇文章**重组**成 1–4 张杂志风格的长图（默认），或一组固定比例的卡片。原文也可以是一条视频：先转成逐字稿文章，后面的流程完全一样。分工如下：
 - **你（Claude）**：读懂文章、规划结构、改写、选图、核对数字，产出 `content.json`。
 - **脚本**：抓取、校验、排版、截图、版面检查。
 
@@ -20,7 +20,7 @@ version: "1.5.0"
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| 第一个参数 | 必填 | URL、本地文件路径，或用户直接粘贴的正文 |
+| 第一个参数 | 必填 | 文章或视频的 URL（抖音分享口令也行）、本地文件路径（文章、视频、音频、.srt/.vtt 字幕），或用户直接粘贴的正文 |
 | 模式 | `-l` | `-l` 杂志长图（默认）、`-f` 原文全文排版、`-w` 白板论证、`-c` 漫画；见下方「其他模式」 |
 | `--ratio` | 不传 = 长图 | 传了才出固定比例卡片：`3:4`、`4:5`、`1:1`、`9:16`。也可以直接写平台名，见下方对照表 |
 | `--style` | 不传 = 由你按内容选 | 主题名，多个用逗号分隔，或 `all`。可用主题见 `node ${CLAUDE_SKILL_DIR}/scripts/render.mjs --list` |
@@ -40,11 +40,13 @@ version: "1.5.0"
 | 方图、正方形、朋友圈、1:1 | `--ratio 1:1`（1080×1080） |
 | 竖屏、Stories、快拍、9:16 | `--ratio 9:16`（1080×1920） |
 | 公众号、微信文章、gzh、推文排版 | `--layout wechat`（可粘贴的图文 + 头图，见 `references/wechat-guide.md`） |
-| 视频、口播、短视频、抖音、视频号、做成视频 | `scripts/video.mjs`（竖屏讲解视频，见下方「口播视频」和 `references/video-guide.md`） |
+| 做成视频、口播、短视频、视频号 | `scripts/video.mjs`（竖屏讲解视频，见下方「口播视频」和 `references/video-guide.md`） |
 | `-f`、原文排版、全文卡片、一字不改、原文长图 | `--layout full`（见 `references/mode-full.md`） |
 | `-w`、白板、论证图、推理过程、思路图 | `--layout whiteboard`（见 `references/mode-whiteboard.md`） |
 | `-c`、漫画、连环画、四格、分镜 | `scripts/comic.mjs`（见 `references/mode-comic.md`；需要出图能力） |
 | "长图和小红书都要" | 两种都渲染，内容只写一份 |
+
+**输入和输出分开判断：** 给的是视频链接或视频文件，只说明**原文**是视频（先转逐字稿）；产出仍按上表定，没提就出长图。「把这个抖音视频做成小红书」是视频进、卡片出；「把这篇文章做成抖音视频」是文章进、口播视频出。
 
 **主题怎么定：** 用户指定了就用指定的。没指定时，**由你根据内容来选**：读 `references/styles.md` 的选择指南，挑一个最合适的主题，写进 content.json 的 `"theme"` 字段（render 不传 `--theme` 时会用它），交付时用一句话说明为什么选它。
 
@@ -67,8 +69,16 @@ node ${CLAUDE_SKILL_DIR}/scripts/fetch.mjs "<url>" --out <目录>      # 指定�
 - 普通网页：依次尝试 r.jina.ai、defuddle.md，最后用本地 Chrome 提取。加 `--no-proxy` 可以不经过第三方服务。
 - 微信公众号：直接用本地 Chrome 提取。
 - 用户直接粘贴正文时：不用抓取，自己在 `./article2media-out/<简短英文 slug>/article.md` 写入正文（开头加 front matter：title、author、platform、date）。
+- **视频**（抖音、YouTube、B 站链接，本地视频 / 音频，.srt / .vtt 字幕）：同一条命令，自动转成**逐字稿文章** `article.md`，时间轴在 `transcript/segments.md`。
+  - **文字来源**：人工字幕优先，其次平台的原语言自动字幕（不用机器翻译的字幕轨），都没有时用本地 Whisper 识别。
+  - **识别不准的专有名词**：先用 `--prompt "人名 术语"` 提示，再用 `--terms 词表.txt`（每行 `错词=>正词`）替换。
+  - **平台要求浏览器 cookie 时**（YouTube 的机器人校验、抖音）：先问用户能不能复用本机浏览器状态，同意后才加 `--cookies-from-browser chrome`；不同意就请用户把视频保存到本地，直接传文件，本地文件可用 `--title`、`--author` 补上标题和作者。
+
+  细节见 `references/video-input.md`。
 
 然后**完整读一遍** `article.md`。抓取失败或正文明显不全（比如只有一段摘要）时，告诉用户，并请对方粘贴正文。
+
+逐字稿是**口语**：重组时去掉口头禅和重复，事实、数字、人名以视频为准；识别可能出错的人名、术语，对照 `transcript/segments.md` 的上下文判断，拿不准的在交付时说明。来源写成「内容整理自 <作者> 的<平台>视频《标题》」。
 
 ### 3. 规划
 读 `references/writing-guide.md`，然后确定：

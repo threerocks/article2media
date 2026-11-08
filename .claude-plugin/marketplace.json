@@ -1,15 +1,15 @@
 {
   "name": "article2media",
-  "description": "article2media（原名 article2img）：把一篇文章（X 长文、网页、公众号、本地 Markdown）一键做成小红书图文卡片、杂志长图、可粘贴的公众号排版和带 AI 配音与逐字字幕的竖屏口播视频，另有原文全文排版、白板论证和漫画；21 套主题，每种产出自动验收，零 npm 依赖。",
-  "version": "1.5.0",
+  "description": "article2media（原名 article2img）：把一篇文章（X 长文、网页、公众号、本地 Markdown）或一条视频（抖音、YouTube、B 站、本地视频，先转成逐字稿）一键做成小红书图文卡片、杂志长图、可粘贴的公众号排版和带 AI 配音与逐字字幕的竖屏口播视频，另有原文全文排版、白板论证和漫画；21 套主题，每种产出自动验收，零 npm 依赖。",
+  "version": "1.6.0",
   "owner": {
     "name": "LeiLiu"
   },
   "plugins": [
     {
       "name": "article2media",
-      "description": "把文章一键做成小红书图文、杂志长图、公众号排版、口播短视频、原文排版、白板论证与漫画",
-      "version": "1.5.0",
+      "description": "把文章或视频（抖音、B 站、YouTube）一键做成小红书图文、杂志长图、公众号排版、口播短视频、原文排版、白板论证与漫画",
+      "version": "1.6.0",
       "source": "./"
     }
   ]

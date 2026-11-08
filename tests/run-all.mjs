@@ -256,6 +256,69 @@ console.log('\n== 全文 · 白板 · 漫画');
   check('-c 排版（占位分格）：长漫画 + 3:4 卡片、0 错误', r.code === 0 && fs.existsSync(path.join(dir, 'comic', 'comic.png')) && fs.existsSync(path.join(dir, 'comic', 'card-05.png')), r.out);
 }
 
+// ---------- 1e. 视频输入：视频 → 逐字稿文章 ----------
+console.log('\n== 视频输入');
+{
+  const T = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'media', 'transcript.mjs')).href);
+  const kinds = [
+    ['https://www.youtube.com/watch?v=abc123', 'youtube'], ['https://youtu.be/abc123', 'youtube'],
+    ['https://www.bilibili.com/video/BV1NprhBPEtR', 'bilibili'], ['https://b23.tv/xYz12', 'bilibili'], ['BV1NprhBPEtR', 'bilibili'],
+    ['https://www.douyin.com/video/7588659303955877139', 'douyin'], ['7588659303955877139', 'douyin'],
+    ['7.94 复制打开抖音，看看【房东说漫的作品】剑来第三集 https://v.douyin.com/iAbCdEf/ R@k.Ja 02/18', 'douyin'],
+    ['https://x.com/thedankoe/status/2117664712532123680', null], ['https://example.com/post', null],
+  ];
+  const got = kinds.map(([u]) => T.detectVideoInput(u)?.kind ?? null);
+  check('识别视频链接：YouTube / B 站 / 抖音（含短链分享口令），文章链接不误判', got.every((k, i) => k === kinds[i][1]), JSON.stringify(got));
+  const files = [['talk.mp4', 'media'], ['podcast.m4a', 'media'], ['talk.srt', 'subtitle'], ['talk.vtt', 'subtitle'], ['notes.md', null]];
+  check('识别本地文件：视频 / 音频 / 字幕走逐字稿，Markdown 仍是文章', files.every(([f, k]) => (T.detectVideoInput(f, { isFile: true })?.kind ?? null) === k));
+  check('抖音视频 id：/video/、modal_id、短链要先跳转', T.douyinId('https://www.douyin.com/user/self?modal_id=7592994740174458118&showTab=record') === '7592994740174458118'
+    && T.douyinId('https://www.iesdouyin.com/share/video/7588659303955877139/?region=CN') === '7588659303955877139' && T.douyinId('https://v.douyin.com/iAbCdEf/') === null);
+  const router = { loaderData: { 'video_(id)/page': { videoInfoRes: { item_list: [{ desc: '【剑来第三集】莫向外求 #剑来 #动画', author: { nickname: '房东说漫' }, video: { duration: 866000, play_addr: { url_list: ['https://aweme.snssdk.com/aweme/v1/playwm/?video_id=v03'] } } }] } } } };
+  const item = T.douyinItem(`<html><script>window._ROUTER_DATA = ${JSON.stringify(router)}</script></html>`);
+  check('抖音分享页：解析出作品信息，无水印地址优先', item.author.nickname === '房东说漫' && T.titleFromDesc(item.desc) === '【剑来第三集】莫向外求'
+    && T.playUrlCandidates(item.video.play_addr.url_list[0])[0].includes('/play/?'));
+  const vtt = ['WEBVTT', '', '00:00:00.000 --> 00:00:02.000', 'so today we are', '', '00:00:02.000 --> 00:00:02.010', 'so today we are', '',
+    '00:00:02.010 --> 00:00:04.000', 'so today we are', 'going to <c>talk</c> about', '', '00:00:04.000 --> 00:00:06.000', 'going to talk about', 'attention'].join('\n');
+  const segs = T.parseVtt(vtt);
+  check('YouTube 自动字幕：去掉滚动重复和 10 ms 过渡条', segs.map((s) => s.text).join(' | ') === 'so today we are | going to talk about | attention', JSON.stringify(segs));
+  const srt = T.parseSrt('1\n00:00:01,000 --> 00:00:03,500\n第一句话\n\n2\n00:00:03,500 --> 00:00:06,000\n第二句话\n');
+  check('SRT 解析：时间与文字', srt.length === 2 && srt[1].start === 3.5 && srt[1].text === '第二句话');
+  const tracks = [
+    T.pickSubtitleTrack({ subtitles: { en: [], 'zh-Hans': [] }, automatic_captions: { 'en-orig': [] } }),
+    T.pickSubtitleTrack({ subtitles: {}, automatic_captions: { 'en-orig': [], 'zh-Hans': [], fr: [] } }),
+    T.pickSubtitleTrack({ subtitles: { danmaku: [] } }),
+  ];
+  check('字幕轨：人工字幕优先；自动字幕只要原语言，不要机翻；B 站弹幕不算字幕', tracks[0]?.lang === 'zh-Hans' && !tracks[0].auto && tracks[1]?.lang === 'en-orig' && tracks[1].auto && tracks[2] === null, JSON.stringify(tracks));
+  const cleaned = T.cleanSegments([{ start: 0, end: 2, text: '陳平安 對這個世界失望' }, { start: 2, end: 3, text: '軟秀來了,大家好' }, { start: 3, end: 4, text: '字幕由Amara.org社区提供' },
+    { start: 4, end: 5, text: '好' }, { start: 5, end: 6, text: '好' }, { start: 6, end: 7, text: '好' }, { start: 7, end: 8, text: '好' }], { terms: T.parseTerms('# 术语\n软秀=>阮秀\n陈平安') });
+  check('清理：繁转简、半角标点转全角、术语替换、去掉幻觉句和重复循环', cleaned.map((s) => s.text).join('|') === '陈平安 对这个世界失望|阮秀来了，大家好|好|好', JSON.stringify(cleaned));
+  const paras = T.toParagraphs([{ start: 0, end: 3, text: '剑来第三集 五千字解析 来了' }, { start: 3, end: 6, text: '这集我们讲莫向外求 潜心成圣的含义和它背后的典故出处' }, { start: 6, end: 9, text: '先从陈平安的选择说起 这一段很关键 值得反复看几遍' }, { start: 11, end: 13, text: '下面进入第二部分' }]);
+  check('分段：中文停顿变逗号、段尾补句号、长停顿另起一段（只补标点，不改字）', paras.length === 2 && paras[0].startsWith('剑来第三集，五千字解析，来了，这集') && paras[0].endsWith('几遍。') && paras[1] === '下面进入第二部分。', JSON.stringify(paras));
+
+  // End to end, offline: a subtitle file becomes article.md + transcript/.
+  const FETCH = path.join(SKILL, 'scripts', 'fetch.mjs');
+  const vdir = path.join(OUT, 'video-input');
+  fs.mkdirSync(vdir, { recursive: true });
+  const srtFile = path.join(vdir, 'talk-sample.srt');
+  fs.writeFileSync(srtFile, '1\n00:00:00,500 --> 00:00:03,000\n最赚钱的技能 一直是抓住注意力\n\n2\n00:00:03,000 --> 00:00:06,000\n没人知道你 再好的东西也卖不出去\n');
+  const rs = spawnSync(process.execPath, [FETCH, srtFile, '--out', path.join(vdir, 'srt')], { encoding: 'utf8', timeout: 120000 });
+  const art = fs.existsSync(path.join(vdir, 'srt', 'article.md')) ? fs.readFileSync(path.join(vdir, 'srt', 'article.md'), 'utf8') : '';
+  check('字幕文件 → 逐字稿文章：front matter 标明来源，正文成段，时间轴另存', rs.status === 0 && /platform: "字幕文件"/.test(art) && /transcript: "字幕文件"/.test(art)
+    && /最赚钱的技能，一直是抓住注意力，没人知道你，再好的东西也卖不出去。/.test(art) && fs.existsSync(path.join(vdir, 'srt', 'transcript', 'segments.md')), (rs.stderr || '') + art);
+
+  // End to end with local Whisper, when this machine has it: synthesized speech → transcript.
+  const { detectVoice } = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'video', 'voice.mjs')).href);
+  const say = spawnSync('say', ['-v', '?'], { encoding: 'utf8' });
+  if (detectVoice().whisper && say.status === 0 && /zh_CN/.test(say.stdout)) {
+    const aiff = path.join(vdir, 'speech.aiff'), m4a = path.join(vdir, 'speech-sample.m4a');
+    spawnSync('say', ['-v', /^Tingting\s/m.test(say.stdout) ? 'Tingting' : say.stdout.match(/^(.+?)\s{2,}zh_CN/m)[1].trim(), '-o', aiff, '注意力是最稀缺的资源。没有人知道你，再好的产品也卖不出去。'], { timeout: 60000 });
+    spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', aiff, m4a], { timeout: 60000 });
+    const rm = spawnSync(process.execPath, [FETCH, m4a, '--lang', 'zh', '--out', path.join(vdir, 'media')], { encoding: 'utf8', timeout: 600000 });
+    const am = fs.existsSync(path.join(vdir, 'media', 'article.md')) ? fs.readFileSync(path.join(vdir, 'media', 'article.md'), 'utf8') : '';
+    check('本地音频 → 本地语音识别 → 逐字稿文章', rm.status === 0 && /platform: "本地音频"/.test(am) && /transcript: "本地语音识别"/.test(am) && /注意力/.test(am) && /产品/.test(am), (rm.stderr || '') + am);
+  } else console.log('⚠ 跳过本地语音识别端到端检查：本机没有 mlx-whisper 模型或中文系统语音');
+}
+
 // ---------- 2. Render matrix ----------
 console.log('\n== 渲染矩阵');
 const layouts = [[], ['--ratio', '3:4'], ['--ratio', '4:5'], ['--ratio', '1:1'], ['--ratio', '9:16'], ['--layout', 'wechat']];
