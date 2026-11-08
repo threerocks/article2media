@@ -1,0 +1,107 @@
+{
+  "lang": "zh",
+  "title": "组件画廊：\n所有图表一次看全",
+  "series": "article2media · 回归测试",
+  "source": { "author": "article2media", "title": "组件画廊", "platform": "测试数据", "date": "2026-11-06" },
+  "pages": [
+    {
+      "part": "第一部分 · 数据与结构",
+      "intro": "这一页覆盖 bar、hbar、stack、flow、grid、converge、tree、stats 八种图，以及 **table、cards、quote** 三种面板。",
+      "sections": [
+        {
+          "label": "数据",
+          "heading": "柱状图与\n横向条形",
+          "paragraphs": ["柱状图适合随时间变化的数字；横向条形适合**之前与之后**或区间。"],
+          "bullets": ["bar 默认高亮最后一根。", "hbar 支持 range 区间写法。"],
+          "takeaway": "数字要少，结论要大。",
+          "figures": [
+            { "type": "bar", "caption": "五年约涨 3 倍。", "note": "示意数据 · *预测值",
+              "data": [["2021", 13.9, "$13.9B"], ["2024", 29.5, "$29.5B"], ["2025", 37.1, "$37.1B"], ["2026*", 43.9, "$43.9B"]] },
+            { "type": "hbar", "caption": "区间写法：收入范围。", "max": 75, "axis": ["$0", "$75k"],
+              "data": [{ "label": "内容客户", "sub": "一个", "range": [2.5, 5], "display": "$2.5–5k" }, { "label": "创意总监", "sub": "1–3 个客户", "range": [10, 75], "display": "$10–75k" }], "highlight": 1 }
+          ],
+          "panel": { "type": "table", "title": "表格面板 · 编者归纳", "rows": [["你自己的生意", "发内容现在几乎是吸引付费受众的标配"], ["初创公司", "“创始人亲自营销”，就是创始人自己做品牌、自己发帖"]] }
+        },
+        {
+          "label": "选择",
+          "heading": "三个选项，\n只突出一个",
+          "paragraphs": ["stack 用来表现“有几种选择”，并高亮其中一个。flow 表现加工流程。"],
+          "takeaway": "先有背景，再有内容。",
+          "figures": [
+            { "type": "stack", "caption": "他给的三个选项。", "header": "工作保障越来越弱时",
+              "items": ["抱怨，什么都不做", "提升技能，找更好的工作", { "title": "打造你想要的事业", "note": "多数人" }], "highlight": 2, "footer": "多得离谱的人会选第三个" },
+            { "type": "flow", "caption": "答案去哪儿。", "steps": ["录音通话", "文字稿", "品牌文档", "每份 AI 草稿都读它"], "highlight": 2 }
+          ],
+          "panel": { "type": "cards", "title": "卡片面板 · 编者归纳", "items": [{ "title": "内容还行，没有品牌", "text": "一条爆了，之后每条一千播放。" }, { "title": "一个内容世界", "text": "人们一直看下去，因为品牌给了他们回来的理由。" }] }
+        },
+        {
+          "label": "汇聚",
+          "heading": "收集声音，\n别伪造",
+          "paragraphs": ["grid 适合并列概念；converge 表现多个来源汇成一个观点。"],
+          "figures": [
+            { "type": "grid", "caption": "九组，28 个问题。", "items": ["你帮谁", "你的故事", "谁塑造了你", "你的支柱", "你的信念", "你反对什么", "为什么是现在", "他们的未来", "规则与词"], "cols": 3, "highlight": [0] },
+            { "type": "converge", "caption": "影响你的人，混成你自己的观点。", "sources": ["Naval", "Leo Gura", "Mihaly C", "Kotler", "Wilber"], "target": "你的观点，用你的话" }
+          ],
+          "panel": { "type": "quote", "title": "引用面板 · 他的原话", "text": "“从 [@handles] 抓取最好的内容：他们所在的每个平台各 10-20 条。然后，我要你记下让他们与众不同的核心观点。”", "note": "注：他用自家工具 Eden 来跑；用什么都行。" }
+        },
+        {
+          "label": "层级",
+          "heading": "从支柱\n到角度",
+          "paragraphs": ["tree 表现层级；stats 放一两个要让人记住的大数字。"],
+          "figures": [
+            { "type": "tree", "caption": "他的内容地图，画成一棵树。", "root": "支柱", "children": ["话题", "话题", "话题"], "leaves": 5, "note": "3–4 支柱 → 5–7 话题" },
+            { "type": "stats", "caption": "点子和角度加起来有多少。", "items": [{ "label": "点子", "value": "75–280" }, { "label": "角度", "value": "300–1,400" }], "note": "按他的区间相乘" }
+          ]
+        }
+      ],
+      "closing": "**图表是为结论服务的。**第二页：算式、轨迹、对比、循环、引语、手写 SVG 和清单。"
+    },
+    {
+      "part": "第二部分 · 关系与行动",
+      "intro": "这一页覆盖 equation、path、compare、cycle、quote、svg、image 七种图，以及 checklist 节。",
+      "sections": [
+        {
+          "label": "算式",
+          "heading": "先把活\n干了",
+          "paragraphs": ["equation 表现简单算术；path 表现从现在到未来的轨迹。"],
+          "figures": [
+            { "type": "equation", "caption": "他的外联算术。", "terms": [{ "value": "10 条私信", "label": "每天" }, { "value": "30", "label": "天" }, { "value": "300", "label": "次接触" }], "ops": ["×", "="], "result": "至少 1 个客户" },
+            { "type": "path", "caption": "从今天到五年后。", "points": [{ "label": "现在", "note": "糟糕的一天" }, { "label": "你反对什么", "note": "一种习惯" }, { "label": "五年后", "note": "怎么称呼自己" }] }
+          ]
+        },
+        {
+          "label": "对比",
+          "heading": "调研是参考，\n不是模仿",
+          "paragraphs": ["compare 左边打勾、右边打叉；cycle 表现循环。"],
+          "figures": [
+            { "type": "compare", "caption": "他“收集参考”的规则。", "left": { "title": "参考", "items": ["模式", "原理", "结构", "透过你的视角"] }, "right": { "title": "照抄", "items": ["同一条帖子", "一字一句", "别人的故事"] } },
+            { "type": "cycle", "caption": "钱花掉了还能赚回。", "items": ["花钱", "做事", "赚回来"], "center": "金钱" }
+          ]
+        },
+        {
+          "label": "引语",
+          "heading": "原话与\n手绘",
+          "paragraphs": ["quote 放一句有力的原话；svg 是最后手段，颜色只能用 class。"],
+          "figures": [
+            { "type": "quote", "caption": "一家代理公司讲工作怎么变了。", "text": "我现在的全部工作，就是审改草稿。", "by": "一家代理公司的创始人" },
+            { "type": "svg", "caption": "手写 SVG：注意力花掉就没了。", "svg": "<svg viewBox=\"0 0 280 168\"><rect x=\"30\" y=\"60\" width=\"80\" height=\"44\" rx=\"4\" class=\"f-card s-acc\" stroke-width=\"1.2\"/><text x=\"70\" y=\"86\" text-anchor=\"middle\" class=\"t-box\">注意力</text><path d=\"M112 82 H220\" class=\"s-acc\" stroke-width=\"1.4\" stroke-dasharray=\"4 3\"/><path d=\"M214 76 L222 82 L214 88\" class=\"s-acc\" fill=\"none\" stroke-width=\"1.4\"/><text x=\"166\" y=\"74\" text-anchor=\"middle\" class=\"t-sm\">花掉</text><text x=\"240\" y=\"86\" text-anchor=\"middle\" class=\"t-val\">∅</text></svg>" }
+          ]
+        },
+        {
+          "kind": "checklist",
+          "label": "执行",
+          "heading": "执行清单",
+          "paragraphs": ["按实际执行顺序排列。**从上往下做；事情真做完了才打勾。**"],
+          "stages": [
+            { "label": "第 1 阶段", "title": "定下打法", "items": ["选一个：做你自己的品牌，或做别人的创意团队。", "把你服务的人描述成一个真实的人。", "用一句话写下你的使命。"], "done": "你能用两句话说清它为谁而做。" },
+            { "label": "第 2 阶段", "title": "搭好背景", "items": ["回答他的 28 个问题，录成通话。", "把答案存成品牌文档。"], "done": "两份文档都在，而且你的 AI 能读到。" },
+            { "label": "第 3 阶段", "title": "调研与规划", "items": ["收集参考，包括你不发帖的平台。", "规划 3-4 个支柱、5-7 个话题。"], "done": "你手里有大约六个月的点子。" }
+          ],
+          "guard": { "title": "该避开什么", "items": ["别把它当一夜暴富。", "别指望每条都爆。", "别指望一条帖子撑起品牌。"], "note": "每一条都是他文中点名的失败模式。" },
+          "note": "步骤和数字是他的；阶段划分出自编者。"
+        }
+      ],
+      "closing": "**这是一场长期游戏。**背景搭一次，之后每条帖子都更容易写。"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "article2media"
+  short_description: "把文章一键做成小红书图文、杂志长图、公众号排版和口播短视频，另有原文全文排版、白板论证与漫画"
+  default_prompt: "使用 $article2media 把这篇文章做成总结图；没说版式就出杂志长图，主题按内容选择。"

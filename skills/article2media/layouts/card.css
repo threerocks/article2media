@@ -1,0 +1,125 @@
+/* Layout: card — fixed-ratio cards, 540 CSS px wide (1080 px at 2x): 3:4 (小红书), 4:5, 1:1, 9:16.
+   Card size comes from --card-w / --card-h on .sheet. Loaded after components.css.
+   All cards sit in one grid (.sheet), which doubles as a contact sheet. */
+
+body { width: max-content; background: var(--sheet-bg, #9a9a96); }
+.sheet { display: grid; grid-template-columns: repeat(3, var(--card-w, 540px)); gap: 24px; padding: 24px; }
+[hidden] { display: none !important; }
+
+.card {
+  width: var(--card-w, 540px); height: var(--card-h, 720px); overflow: hidden; position: relative;
+  display: flex; flex-direction: column; padding: 26px 30px 20px;
+  background: var(--bg); color: var(--ink);
+}
+.c-top, .c-foot {
+  flex: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  font-size: 11.5px; color: var(--muted); letter-spacing: .03em; line-height: 1.4;
+}
+.c-foot { padding-top: 12px; font-size: 10.5px; }
+.c-foot span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.c-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding-top: 18px; }
+.c-body > * { flex: none; }
+
+/* ---------- Section card ---------- */
+.card .sec-label {
+  align-self: flex-start; background: var(--panel-bg); color: var(--acc-text); font-weight: 700;
+  font-size: 12px; padding: 3px 11px; border-radius: var(--radius-sm); letter-spacing: .04em;
+}
+.card .sec-h {
+  font-family: var(--font-head); font-weight: var(--w-h2, 900); color: var(--h2-card-ink, var(--ink));
+  font-size: 29px; line-height: 1.26; margin-top: 0; margin-bottom: 0; letter-spacing: .01em; text-wrap: balance;
+}
+.card .sec-h.cont { font-size: 22px; }
+.c-text { font-size: 17px; line-height: 1.7; }
+.c-bullets { list-style: none; }
+.c-bullets li { position: relative; padding-left: 16px; font-size: 15px; line-height: 1.6; margin-bottom: 4px; }
+.c-bullets li::before { content: ""; position: absolute; left: 2px; top: .72em; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
+
+/* Figures fill the space left on the card. The canvas is drawn at a fixed base size and an inline
+   script (window.__fit) scales it to the box, so text inside figures grows with the space available. */
+.c-body > .c-fig { flex: 1 1 0; min-height: 110px; display: flex; flex-direction: column; }
+.c-fig-card { flex: 1; min-height: 0; background: var(--fig-bg); border-radius: var(--radius); padding: 10px 12px; border: var(--fig-border, 0); }
+.c-fig-box { width: 100%; height: 100%; position: relative; overflow: hidden; }
+.c-fig .fig-canvas { position: absolute; left: 0; top: 0; width: 300px; height: 190px; transform-origin: 0 0; }
+.c-cap { font-size: 13.5px; color: var(--muted); text-align: center; margin-top: 6px; line-height: 1.5; }
+
+.c-take {
+  margin-top: auto; background: var(--panel-bg); border-left: 4px solid var(--acc);
+  padding: 10px 14px; font-weight: 700; font-size: 16px; line-height: 1.55; color: var(--ink);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* Panels on cards: narrower key column, single-column cards */
+.card .panel { padding: 12px 16px 14px; }
+.card .p-table .row { grid-template-columns: 92px 1fr; gap: 12px; font-size: 13.5px; padding: 7px 0; }
+.card .cards.c2, .card .cards.c3 { grid-template-columns: 1fr; }
+.card .p-card { font-size: 13px; }
+.card .p-quote .q { font-size: 14.5px; padding: 12px 14px; }
+
+/* ---------- Cover ---------- */
+.c-cover .c-body { gap: 0; padding-top: 40px; }
+.cv-kicker { color: var(--acc-text); font-weight: 700; font-size: 14px; letter-spacing: .08em; }
+.cv-title {
+  /* Start big; window.__fit shrinks it until it keeps the intended line breaks (min 36px). */
+  font-family: var(--font-head); font-weight: var(--w-title, 900); font-size: var(--cv-size, 58px); line-height: 1.16;
+  margin-top: 16px; color: var(--title-ink, var(--ink)); letter-spacing: var(--ls-title, .01em); text-wrap: balance;
+}
+.cv-title b { color: var(--acc-text); }
+.cv-rule { width: 64px; height: 6px; background: var(--acc); margin: 24px 0 18px; }
+.cv-sub { font-size: 16.5px; line-height: 1.7; }
+/* Optional AI cover illustration: takes the space left on the cover (the TOC is dropped first if needed). */
+.c-body > .cv-ill { flex: 1 1 0; min-height: var(--cv-ill-min, 210px); margin: -4px 0 14px; }
+.r-1x1 .cv-ill { --cv-ill-min: 120px; }
+.r-4x5 .cv-ill { --cv-ill-min: 170px; }
+.r-9x16 .cv-ill { --cv-ill-min: 300px; }
+.cv-toc {
+  margin-top: auto; background: var(--card); border-radius: var(--radius); padding: 12px 18px 8px;
+  box-shadow: var(--card-shadow, 0 0 0 1px var(--rule-soft));
+}
+.cv-toc-h { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .06em; margin-bottom: 4px; }
+.cv-toc ol { list-style: none; }
+.cv-toc li { display: flex; gap: 12px; font-size: 15.5px; line-height: 1.5; padding: 7px 0; border-top: 1px solid var(--rule-soft); }
+.cv-toc li:first-child { border-top: 0; }
+.cv-toc li i { font-style: normal; color: var(--acc-text); font-weight: 700; font-family: var(--font-label, var(--font-head)); flex: none; }
+
+/* ---------- Checklist cards ---------- */
+.c-stages { display: flex; flex-direction: column; gap: 10px; }
+.c-stage {
+  background: var(--card); border-left: 4px solid var(--acc); border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 10px 14px 10px; box-shadow: var(--card-shadow, 0 0 0 1px var(--rule-soft));
+}
+.c-stage-h { display: flex; align-items: baseline; gap: 10px; }
+.c-stage-h small { font-size: 11.5px; color: var(--acc-text); font-weight: 700; flex: none; }
+.c-stage-h b { font-family: var(--font-head); font-size: 17.5px; font-weight: 900; }
+.c-stage ul { list-style: none; margin-top: 4px; }
+.c-stage li { display: flex; gap: 9px; font-size: 14px; line-height: 1.55; padding: 2px 0; }
+.c-box { flex: 0 0 12px; height: 12px; border: 1.5px solid var(--acc-line); border-radius: 2px; margin-top: .4em; }
+.c-done { font-size: 12.5px; color: var(--muted); margin-top: 5px; padding-top: 5px; border-top: 1px dashed var(--rule-soft); line-height: 1.5; }
+.c-done b { color: var(--acc-text); }
+.c-guard { background: var(--guard-bg); color: var(--guard-ink); border-radius: var(--radius); padding: 14px 18px; }
+.c-guard-h { font-family: var(--font-head); font-size: 18px; font-weight: 900; margin-bottom: 6px; }
+.c-guard ul { list-style: none; }
+.c-guard li { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.55; padding: 4px 0; }
+.c-x { flex: none; font-style: normal; color: var(--guard-x, #e2725b); font-weight: 700; }
+.c-guard-note { font-size: 12px; color: var(--guard-muted); margin-top: 8px; }
+.c-note { font-size: 12px; color: var(--muted); }
+
+/* ---------- End card ---------- */
+.end-h { font-family: var(--font-head); font-weight: 900; font-size: 23px; line-height: 1.42; }
+.end-h b { color: var(--acc-text); }
+.end-list { list-style: none; }
+.end-list li { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.5; padding: 6px 0; border-top: 1px solid var(--rule-soft); }
+.end-list li i { flex: none; width: 22px; font-style: normal; color: var(--acc-text); font-weight: 700; font-family: var(--font-label, var(--font-head)); }
+.end-list.dense li { font-size: 13.5px; padding: 4px 0; }
+.end-list.shrink { columns: 2; column-gap: 18px; }
+.end-list.shrink li { font-size: 12.5px; padding: 3px 0; break-inside: avoid; }
+.end-src { margin-top: auto; font-size: 10.5px; color: var(--muted); line-height: 1.6; }
+.end-cta { background: var(--acc); color: var(--on-acc); text-align: center; padding: 10px; font-weight: 700; font-size: 15px; border-radius: var(--radius-sm); }
+
+/* ---------- Ratio tweaks ---------- */
+.r-1x1 .c-cover .c-body { padding-top: 20px; }
+.r-1x1 .cv-title { --cv-size: 46px; margin-top: 10px; }
+.r-1x1 .cv-rule { margin: 16px 0 12px; }
+.r-1x1 .card .sec-h, .r-4x5 .card .sec-h { font-size: 27px; }
+.r-9x16 .cv-title { --cv-size: 64px; }
+.r-9x16 .c-cover .c-body { padding-top: 70px; }

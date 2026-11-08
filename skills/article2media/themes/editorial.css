@@ -1,0 +1,31 @@
+/* editorial | 商业杂志：暖白纸面、思源宋体、每节一个沉稳主色、米色图卡，接近 FT / 经济学人，严谨可信（默认）；适合商业分析、方法论长文、行业观察、人物观点 */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700;900&display=block');
+:root {
+  --font-head: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STSong', serif;
+  --font-body: var(--font-head);
+  --bg: #fbfaf7;
+  --ink: #1f1e1b;
+  --muted: #7a766d;
+  --rule: #dcd8cf;
+  --rule-soft: #ebe8e1;
+  --fig-bg: #efebe3;
+  --card: #ffffff;
+  --on-acc: #ffffff;
+  --radius: 2px;
+  --radius-sm: 2px;
+  --panel-mix: 13%;
+  --guard-bg: #2d2b27;
+  --guard-ink: #f1ede4;
+  --guard-muted: #b3ab9c;
+  --accent-1: #2f5e4e;
+  --accent-2: #2c4a8a;
+  --accent-3: #23625e;
+  --accent-4: #9a3b2b;
+  --accent-5: #5b4290;
+  --accent-6: #8a6514;
+  --accent-7: #2f4f87;
+  --accent-8: #8e2f2b;
+  --accent-9: #2a6a86;
+  --accent-10: #566423;
+  --accent-11: #7b2d5b;
+}

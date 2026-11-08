@@ -1,0 +1,30 @@
+/* swiss | 瑞士极简：纯白底、黑体、粗黑分割线、红黑两色、零圆角，冷静克制、信息密度高；适合数据报告、严肃议题、研究综述、财经 */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=block');
+:root {
+  --font-head: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-body: var(--font-head);
+  --bg: #ffffff;
+  --ink: #111111;
+  --muted: #6e6e6e;
+  --rule: #111111;
+  --rule-soft: #e6e6e6;
+  --fig-bg: #f3f3f1;
+  --card: #ffffff;
+  --on-acc: #ffffff;
+  --radius: 0;
+  --radius-sm: 0;
+  --panel-mix: 7%;
+  --guard-bg: #111111;
+  --guard-ink: #ffffff;
+  --guard-muted: #9a9a9a;
+  --sec-rule: 2px solid #111111;
+  --h2-ink: #111111;
+  --w-h2: 900;
+  --fs-title: 62px;
+  --accent-1: #e3120b;
+  --accent-2: #111111;
+}
+.pg-title { letter-spacing: -.02em; }
+.sec-label { color: var(--acc); font-weight: 700; }
+.sec-h { border-left: 6px solid var(--acc); padding-left: 14px; margin-left: -20px; }
+.cl-card { border-top-width: 6px; }
