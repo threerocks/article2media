@@ -1,13 +1,16 @@
 ---
 title: "article2media：给它一篇文章或一条视频，拿回一整套能发的图文和视频"
-description: "article2media 是一个开源的 Claude Code / Codex Skill，把 X 长文、网页、公众号文章，或抖音、B 站、YouTube 视频（先转成逐字稿），一键做成小红书图文、杂志长图、公众号排版和带 AI 配音的口播短视频，每种产出都自动验收。"
+description: "article2media 是开源的 Claude Code / Codex Skill：把文章或抖音、B 站、YouTube 视频一键做成小红书图文、杂志长图、公众号排版和 AI 配音口播短视频，21 套主题，每种产出自动验收。"
+author: "LeiLiu"
 tags: [article2media, Claude Code, Skill, 小红书图文, 公众号排版, 口播视频, 文章转视频, 视频转图文, 视频转文字, 逐字稿, AI 配音, 开源]
-date: 2026-11-08
+date: 2026-11-09
 ---
 
 # article2media：给它一篇文章或一条视频，拿回一整套能发的图文和视频
 
 > 一个开源的 Claude Code Skill：把文章或视频一键做成小红书图文、公众号排版和口播短视频。这篇讲它的能力、取舍，和一路踩过的坑。
+
+作者：LeiLiu（GitHub：threerocks）· 发布于 2026-11-09 · 适用版本 1.6.0
 
 一篇好文章写完，真正难的是让更多人读到它。
 
@@ -19,19 +22,22 @@ date: 2026-11-08
   - 文章：X 长文、网页、微信公众号文章、本地 Markdown；
   - 视频：抖音、YouTube、B 站链接，本地视频或音频，先转成逐字稿文章。
 - **产出**：七种，包括杂志长图、小红书图文卡片、公众号排版、带 AI 配音和逐字字幕的口播短视频，以及原文排版、白板论证和漫画。
-- **验收**：交付前，它会自己检查一遍。
+- **验收**：交付前，它会自己检查一遍，不合格就报错。
+- **风格**：21 套主题，同一份内容可以随时换风格。
+- **运行**：只需要 Node.js 22 和 Chrome，零 npm 依赖；本地配音和语音识别需要 Apple Silicon。
+- **开源**：MIT 许可，仓库在 [github.com/threerocks/article2media](https://github.com/threerocks/article2media)。
 
 这篇文章讲三件事：它能做什么，它和「让 AI 画张图」有什么不同，以及我们一路上做过的取舍。文中的数据基于 2026 年 11 月的 1.6.0 版。
 
 ---
 
-## 一、它能做什么
+## 一、article2media 能做什么：一份原文，七种产出
 
 一条命令，七种产出：
 
-![同一篇文章的七种产出，以及 21 套主题](showcase.jpg)
+![article2media 用同一篇 X 长文生成的七种产出：杂志长图、小红书卡片、公众号图文、口播视频、原文全文、白板论证、漫画，以及 21 套主题总览](https://raw.githubusercontent.com/threerocks/article2media/main/docs/showcase.jpg)
 
-上图是同一篇 X 长文的全部产出。原文是 Dan Koe 的《The most lucrative AI business to start in 2027》，是英文的，产出全部是中文。
+上图是同一篇 X 长文的全部产出。原文是 Dan Koe 的[《The most lucrative AI business to start in 2027》](https://x.com/thedankoe/status/2117664712532123680)，是英文的，产出全部是中文。[示例视频](https://github.com/threerocks/article2media/blob/main/docs/samples/dan-koe-video.mp4)和 [7 款音色的试听](https://github.com/threerocks/article2media/tree/main/docs/samples/voices)都在仓库里。
 
 为了展示不同风格，示例里每种产出各用了一套主题：
 - **长图**：商业杂志 editorial；
@@ -71,11 +77,22 @@ date: 2026-11-08
 
 风格有 21 套：商业杂志、瑞士极简、深色科技、液态玻璃、多巴胺、新粗野、国潮、新中式、像素、电影感……不指定时，Claude 会按内容和投放平台挑一个，并告诉你为什么选它。
 
-![21 套主题](themes.jpg)
+![同一份内容在 21 套主题下的封面和第一张内容卡](https://raw.githubusercontent.com/threerocks/article2media/main/docs/themes.jpg)
 
 ---
 
 ## 二、它和「让 AI 画张图」有什么不同
+
+先看一张对比，下面六点逐条展开：
+
+| | 常见做法 | article2media |
+|---|---|---|
+| 内容 | 截图，或把全文压成一段摘要 | 先读懂，再按结构重组、配图表 |
+| 图里的中文 | 让 AI 直接画进图里，常写错字 | 图里不放字，所有文字用 HTML 排版 |
+| 质量把关 | 发布前靠人眼检查 | 每种产出都有自动验收，不合格就报错 |
+| 视频 | 图片轮播加机器朗读 | 逐字同步的动画、48 kHz 配音、审片报告 |
+| 原文 | 只收文章 | 文章或视频，视频先转成逐字稿 |
+| 运行 | 依赖云端服务 | 本地优先，零 npm 依赖，缺什么就降级 |
 
 ### 1. 先读懂，再排版
 
@@ -166,7 +183,7 @@ article2media 只需要 Node 22 和一个 Chrome，没有任何 npm 依赖。
 
 ---
 
-## 三、一路上的取舍
+## 三、从 1.0 到 1.6：一路上的取舍
 
 article2media 从第一版到现在的 1.6.0，前后三天、八个版本。下面这些转折，每一个都改变了它的样子。
 
@@ -222,7 +239,10 @@ article2media 从第一版到现在的 1.6.0，前后三天、八个版本。下
 
 做配音时，最自然的想法是克隆几个大家耳熟能详的「国民音色」。我们认真问过自己一个问题：用 AI 把克隆来的声音再合成一遍，算不算一个新声音？
 
-结论是不算。只要听众还能认出是谁，声音权益就仍然属于原来那个人。《民法典》第 1023 条把声音纳入人格权保护，2024 年北京互联网法院也判过 AI 生成声音侵权的案子。
+结论是不算。只要听众还能认出是谁，声音权益就仍然属于原来那个人。
+
+- **法条**：《民法典》第 1023 条第二款写明：「对自然人声音的保护，参照适用肖像权保护的有关规定。」
+- **判例**：2024 年 4 月，北京互联网法院审结了一起 AI 生成声音人格权侵权案，认定只要一般听众能从 AI 合成的声音里认出是谁，这个声音就同样受保护。
 
 所以音色库按版权分成了两层：
 
@@ -269,7 +289,7 @@ article2media 从第一版到现在的 1.6.0，前后三天、八个版本。下
 
 顺手，我们给 21 套主题各配了一套字幕样式：多巴胺用白字粗描边，国潮用朱红印章做关键词，电影感用宽银幕字幕。
 
-![21 套主题的字幕样式](caption-styles.jpg)
+![article2media 口播视频的 21 套字幕样式：卡片、描边贴纸、硬框、无框墨字、荧光笔、电影字幕、毛玻璃](https://raw.githubusercontent.com/threerocks/article2media/main/docs/caption-styles.jpg)
 
 这些标准，包括语速、首句时长和字幕闪断，现在都写进了审片。下次谁再改代码，机器会替我们记住那句「太急了」。
 
@@ -311,7 +331,7 @@ article2media 从第一版到现在的 1.6.0，前后三天、八个版本。下
 - 你同意复用本机浏览器的状态，就加一个参数，交给 yt-dlp 去取；
 - 或者在 App 里把视频保存到本地，直接交文件。
 
-本地文件这条路，用一条 14 分钟的抖音视频完整跑通了。
+本地文件这条路，用一条 14 分钟的抖音视频完整跑通了。支持哪些来源、文字怎么清理、产出放在哪，见[视频输入说明](https://github.com/threerocks/article2media/blob/main/skills/article2media/references/video-input.md)。
 
 ---
 
@@ -327,7 +347,7 @@ article2media 从第一版到现在的 1.6.0，前后三天、八个版本。下
 
 ---
 
-## 五、现在的边界
+## 五、现在的边界：哪些还做不到
 
 - **本地配音**：VoxCPM2 目前只在 Apple Silicon 上运行，其他机器用 edge-tts 或系统语音。
 - **出图**：AI 插画和漫画需要出图能力，比如 Codex CLI 登录，或者 OpenAI、Gemini 的付费 key。
@@ -338,7 +358,7 @@ article2media 从第一版到现在的 1.6.0，前后三天、八个版本。下
 
 ---
 
-## 六、常见问题
+## 六、常见问题（FAQ）
 
 ### article2media 是什么？
 
@@ -398,4 +418,17 @@ npx skills add threerocks/article2media --skill article2media -g -a claude-code 
 
 装好后，在 Claude Code 里输入 `/article2media` 加一个链接就能开始。项目以 MIT 许可开源，欢迎试用、提 issue，也欢迎贡献新主题，一个主题只需要一个 CSS 文件。
 
-项目地址：https://github.com/threerocks/article2media
+项目地址：[github.com/threerocks/article2media](https://github.com/threerocks/article2media)，版本变化见[更新记录](https://github.com/threerocks/article2media/blob/main/CHANGELOG.md)。
+
+---
+
+## 参考与致谢
+
+- **示例原文**：Dan Koe，[The most lucrative AI business to start in 2027](https://x.com/thedankoe/status/2117664712532123680)，X，2026-11-03。
+- **本地配音**：[VoxCPM](https://github.com/OpenBMB/VoxCPM)（OpenBMB），通过 mlx-audio 在 Apple Silicon 上运行。
+- **语音识别与逐字对齐**：[Whisper](https://github.com/openai/whisper)（OpenAI），使用 mlx-whisper 的 MLX 实现。
+- **视频字幕与音频**：[yt-dlp](https://github.com/yt-dlp/yt-dlp)。
+- **繁简转换字表**：[OpenCC](https://github.com/BYVoid/OpenCC)（Apache License 2.0）。
+- **原文全文、白板、漫画三种模式的思路**：[ljg-skills](https://github.com/lijigang/ljg-skills)（MIT）。
+
+*关于本文：由作者与 Claude Code 协作写成。文中的数字来自项目自测和实际运行记录（2026 年 11 月，1.6.0 版），可以在仓库里复现。*
