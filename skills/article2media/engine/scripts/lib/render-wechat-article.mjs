@@ -32,6 +32,10 @@ export async function renderWechatArticle(input, { opt, THEMES_DIR, readCss, lis
   if (!opt.theme) console.log(`主题：${themes.join(', ')}${meta.theme ? '（文章 front matter 指定）' : '（默认）'}`);
 
   const wm = articleWechatMeta(meta, blocks, opt);
+  // Links to video files (e.g. an X post's attached videos) cannot play inside a 公众号 article: say where they are.
+  // (Blocks keep only link text, so read the Markdown: [text](url) whose url is a video file.)
+  const videoLinks = [...art.body.matchAll(/(?<!!)\[([^\]]+)\]\(([^)\s]+)\)/g)]
+    .filter((m) => /\.(mp4|mov|m4v|webm)(\?|#|$)|^https?:\/\/video\.twimg\.com\//i.test(m[2])).map((m) => ({ text: m[1], url: m[2] }));
   const kind = meta.kind === 'rewrite' ? '改写稿' : meta.translated_from ? '译文' : '原文';
   console.log(`公众号排版：${path.basename(src)}（${kind}），${ledger.length} 个正文块，${blocks.filter((b) => b.kind === 'figure').length} 张图`);
   if (opt.check) {
@@ -54,6 +58,7 @@ export async function renderWechatArticle(input, { opt, THEMES_DIR, readCss, lis
       const outDir = path.resolve(themes.length === 1 && opt.out ? opt.out : path.join(opt.out || dir, `${theme}-wechat`));
       fs.mkdirSync(outDir, { recursive: true });
       const issues = [...art.issues];
+      if (videoLinks.length) issues.push({ level: 'warn', where: '视频', msg: `正文有 ${videoLinks.length} 处视频链接（「${videoLinks[0].text.slice(0, 20)}」），公众号正文里点不开：粘贴后在这些位置用编辑器插入视频（先把视频下载到本地）` });
       const srcPath = path.join(outDir, 'source.html');
       fs.writeFileSync(srcPath, buildArticleSource({ blocks, meta, images, themeCss, componentsCss, articleCss: readCss('wechat-article.css'), brand, heroSrc }));
       fs.writeFileSync(path.join(outDir, 'ledger.json'), JSON.stringify({ version: 1, source: src, source_sha256: art.sha, blocks: ledger }, null, 1));
@@ -123,7 +128,9 @@ export async function renderWechatArticle(input, { opt, THEMES_DIR, readCss, lis
           if (b.over > 1) issues.push({ level: 'error', where: name, msg: `标题放不下（超出 ${b.over}px），用 --cover-title "两行\\n标题" 缩短` });
         }
         const notesPath = path.join(outDir, 'wechat.md');
-        fs.writeFileSync(notesPath, buildWechatNotes(c, { wide: path.basename(files.wide), square: path.basename(files.square) }).replace('（文件名就是图号，如 fig-1A.png）', '（按文中顺序编号）'));
+        let notes = buildWechatNotes(c, { wide: path.basename(files.wide), square: path.basename(files.square) }).replace('（文件名就是图号，如 fig-1A.png）', '（按文中顺序编号）');
+        if (videoLinks.length) notes = notes.trimEnd() + `\n6. 正文里有 ${videoLinks.length} 处视频链接（${videoLinks.map((b) => `「${b.text}」`).join('、')}），公众号里点不开：把视频下载到本地，在编辑器里对应位置插入视频，再删掉这行链接文字。\n${videoLinks.map((b) => `   - ${b.url}`).join('\n')}\n`;
+        fs.writeFileSync(notesPath, notes);
         if (!/\n/.test(wm.coverTitle) && wm.coverTitle.length > 24) issues.push({ level: 'warn', where: '封面', msg: `封面标题 ${wm.coverTitle.length} 字，挤在头图上偏小；用 --cover-title "两行\\n短标题" 另写一个` });
         if (!wm.title) issues.push({ level: 'error', where: '公众号标题', msg: '文章没有标题；用 --title 指定' });
         if (wm.title.length > 64) issues.push({ level: 'error', where: '公众号标题', msg: `最多 64 字，当前 ${wm.title.length} 字；用 --title 指定` });

@@ -3,7 +3,7 @@ name: article-fetch
 description: 文章抓取：把一篇文章转成干净的 Markdown（article.md，带标题、作者、平台、日期、链接的 front matter）。支持 X/Twitter 长文、帖子与线程（FxTwitter，不需要登录）、普通网页、微信公众号文章、本地 Markdown / 文本 / HTML 文件。article2media 的第一步，也可以单独用。Use when the user wants an article, X post or thread, web page or 公众号文章 fetched / saved / converted to Markdown (抓取文章、把这篇存成 markdown、提取正文、导出原文), or when another article2media skill needs the original text from a URL.
 argument-hint: <url|文件> [--out 目录] [--no-proxy] [--title 标题] [--author 作者]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.0.0"
+version: "2.0.1"
 ---
 
 # 文章抓取（article-fetch）
@@ -36,6 +36,7 @@ node ${CLAUDE_SKILL_DIR}/scripts/fetch.mjs "<url>" --out <目录>      # 指定�
 **完整读一遍** `article.md`：
 - 正文明显不全（只有摘要、被登录墙截断、只抓到评论区）时，告诉用户，请对方粘贴正文；
 - 标了 `<!-- 未识别的内容块 -->` 的地方可能缺内容，交付时说明。
+- 脚本提示「⚠ 正文只有 N 字，主要内容可能在视频 / 图里」时（常见于图解帖、短视频帖）：X 帖子的视频写成了「封面图 + ▶ 视频链接」。先看图；视频用 ffmpeg 抽帧（第一帧常是带标注的完整图解）看画面。有配音的交给 `video-transcript`；只有画面文字的，把文字按原语言逐字整理进 `article.md`（放在对应的图 / 视频后面，用原文的分组做小标题），交付时说明哪些内容来自画面。
 
 ## 4. 交付
 单独使用时：给出 `article.md` 的绝对路径、标题、作者、平台、字数，以及上面发现的缺漏。

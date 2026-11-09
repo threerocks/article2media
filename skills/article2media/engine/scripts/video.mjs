@@ -83,6 +83,14 @@ function load(f) {
     const parts = (sc.lines || []).map(splitStyle);
     sc.styles = parts.map((x) => x.style);
     sc.lines = parts.map((x) => x.text);
+    // Local pictures (image scenes, evidence / title images) resolve against video.json's directory.
+    for (const o of [sc, sc.image]) {
+      if (o && typeof o.src === 'string' && !/^(https?|data|file):/i.test(o.src)) {
+        const file = path.resolve(path.dirname(p), o.src);
+        if (!fs.existsSync(file)) die(`✗ 镜头 ${sc.id}：找不到图片 ${o.src}（本地图片的路径相对 video.json 所在目录）`, 2);
+        o.src = pathToFileURL(file).href;
+      }
+    }
   }
   return { v, p, dir: path.dirname(p) };
 }
@@ -190,6 +198,8 @@ function review(v, align, rep, outDir) {
   const capGaps = rep.captions.filter((c, k) => { const nx = rep.captions[k + 1]; return nx && nx.t - c.until > 0.01 && nx.t - c.until < 0.6; }).length;
   const capAvg = rep.captions.length ? rep.captions.reduce((a, c) => a + (c.until - c.t), 0) / rep.captions.length : 0;
   notes.push({ check: '字幕闪断（<0.6s 的空档）', value: `${capGaps} 处`, ok: capGaps === 0 });
+  // Rendering: a caption missing from single frames of the finished video reads as flicker even when the timeline is right.
+  if (rep.capDrops) notes.push({ check: '字幕丢帧（成片里该有字幕却是空的）', value: `${rep.capDrops.frames.length} 帧 / ${rep.capDrops.checked}${rep.capDrops.frames.length ? `（从 ${(rep.capDrops.frames[0] / (rep.fps || 30)).toFixed(2)}s 起）` : ''}`, ok: rep.capDrops.frames.length === 0 });
   notes.push({ check: '字幕平均停留', value: `${capAvg.toFixed(2)}s（${rep.captions.length} 条，${rep.captionStyle || ''}）`, ok: capAvg >= 1.3 });
   const bad = align.checks.filter((c) => c.problems.length);
   notes.push({ check: '配音质检', value: align.asr ? `${align.checks.length} 段，${bad.length} 段有问题` : '没有 ASR，未核对漏读', ok: !bad.length });
@@ -213,7 +223,7 @@ ${x.title || plainText(v.cover?.title || '').replace(/\n/g, '')}
 ${x.caption ? x.caption.split('\n\n')[0] : ''}
 
 内容整理自 ${[src.author, src.handle].filter(Boolean).join(' ')} 的${src.platform || ''}《${src.title || ''}》。
-本视频配音与画面由 AI 辅助生成。${align.voiceScope === 'local' ? `\n\n> ⚠ 配音克隆自本机个人音色「${align.voiceName}」（${align.voiceSource || '来源未登记'}）。公开发布前确认已取得声音权利人的授权；否则换用公开音色重新生成（--voice sunny-narrator 等）。` : ''}
+本视频配音与画面由 AI 辅助生成。${align.voiceScope === 'local' ? `\n\n> ⚠ 配音克隆自本机个人音色「${align.voiceName}」（${align.voiceSource || '来源未登记'}）。公开发布前确认已取得声音权利人的授权；否则换用公开音色重新生成（--voice news-man 等）。` : ''}
 
 ${tags}
 

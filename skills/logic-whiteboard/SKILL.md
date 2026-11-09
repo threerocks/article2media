@@ -3,7 +3,7 @@ name: logic-whiteboard
 description: 白板论证：把一篇文章的推理过程摊成一条纵向主干的长图——问题在上，前提、证据、矛盾、转折、分支逐层往下，停在内容自身的收束处；每段原文都必须进入某一步或写明省略理由（论证账本 + 来源清单校验）。输入是文章（原文、译文、逐字稿）。可以单独用，也可以接在抓取、视频转文字、翻译后面。Use when the user wants a 白板, 论证图, 推理过程图, 思路图, argument map, "把这篇的逻辑画出来", or -w.
 argument-hint: <article.md|目录> [--theme 主题名]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.0.0"
+version: "2.0.1"
 ---
 
 # 白板论证（logic-whiteboard）

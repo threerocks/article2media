@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { validate } from './lib/validate.mjs';
 import { buildWechatSource } from './lib/layout-wechat.mjs';
-import { resolveIllustrations } from './lib/illustrations.mjs';
+import { resolveIllustrations, resolveImageFigures } from './lib/illustrations.mjs';
 import { qaInPage } from './lib/qa.mjs';
 import { launchBrowser } from './lib/chrome.mjs';
 import { contentToMarkdown } from './lib/rewrite-md.mjs';
@@ -42,6 +42,7 @@ const themeCss = fs.readFileSync(themePath, 'utf8');
 const nAcc = Math.max(1, new Set(themeCss.match(/--accent-\d+\s*:/g) || []).size);
 const brand = { ...loadBrand({ file: opt.brand, dir }), ...(content.brand || {}) };
 const ill = resolveIllustrations(content, theme, dir);
+const missingImages = resolveImageFigures(content, dir);
 
 const assets = path.join(outDir, 'rewrite-assets');
 fs.mkdirSync(assets, { recursive: true });
@@ -50,6 +51,7 @@ const srcPath = path.join(assets, 'figures.html');
 fs.writeFileSync(srcPath, buildWechatSource({ content, brand, themeCss, componentsCss: readCss('components.css'), wechatCss: readCss('wechat.css'), nAcc }));
 
 const issues = ill.missing.map((m) => ({ level: 'error', where: m.where, msg: 'AI 插画还没生成（导出的会是占位框）：先运行 illustrate.mjs，生成不了就去掉插画字段' }));
+for (const m of missingImages) issues.push({ level: 'error', where: m.where, msg: `找不到图片文件 ${m.src}（路径相对 content.json 所在目录）` });
 const figs = {};
 let hero = '';
 const browser = await launchBrowser();

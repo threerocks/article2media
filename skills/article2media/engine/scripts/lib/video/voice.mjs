@@ -361,7 +361,9 @@ export async function synthesize(scenes, dir, opts = {}) {
       c_er = cer(ref, hyp);
       if (c_er > 0.2) problems.push(`识别错字率 ${(c_er * 100).toFixed(0)}%`);
       const lastRef = ref.slice(-1);
-      if (lastRef && !hyp.slice(-3).includes(lastRef) && c_er > 0.05) problems.push('末字可能没读出');
+      // A missing ending makes the transcript shorter; a same-length transcript with a different last character is a
+      // homophone the recognizer preferred (俯仰 → 抚养, 推镜 → 推进), not a swallowed word.
+      if (lastRef && !hyp.slice(-3).includes(lastRef) && c_er > 0.05 && hyp.length < ref.length) problems.push('末字可能没读出');
       // Mixed Chinese/English: every Latin word should show up in the transcript.
       const heard = String(a.text).toLowerCase();
       const missed = latinWords(c.spoken).filter((w) => !heard.includes(w.toLowerCase()));

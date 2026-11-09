@@ -37,7 +37,7 @@ date: 2026-11-09
 
 ![article2media 用同一篇 X 长文生成的七种产出：杂志长图、小红书卡片、公众号图文、口播视频、原文全文、白板论证、漫画，以及 21 套主题总览](https://raw.githubusercontent.com/threerocks/article2media/main/docs/showcase.jpg)
 
-上图是同一篇 X 长文的全部产出。原文是 Dan Koe 的[《The most lucrative AI business to start in 2027》](https://x.com/thedankoe/status/2117664712532123680)，是英文的，产出全部是中文。[示例视频](https://github.com/threerocks/article2media/blob/main/docs/samples/dan-koe-video.mp4)和 [7 款音色的试听](https://github.com/threerocks/article2media/tree/main/docs/samples/voices)都在仓库里。
+上图是同一篇 X 长文的全部产出。原文是 Dan Koe 的[《The most lucrative AI business to start in 2027》](https://x.com/thedankoe/status/2117664712532123680)，是英文的，产出全部是中文。[示例视频](https://github.com/threerocks/article2media/blob/main/docs/samples/dan-koe-video.mp4)和 [6 款音色的试听](https://github.com/threerocks/article2media/tree/main/docs/samples/voices)都在仓库里。
 
 为了展示不同风格，示例里每种产出各用了一套主题：
 - **长图**：商业杂志 editorial；
@@ -163,7 +163,7 @@ article2media 的视频是按短视频的规律设计的：
 
 ### 5. 版权和合规，从第一天就写进流程
 
-- **随包音色**：7 款音色全部只凭文字描述设计，不模仿任何真人。
+- **随包音色**：6 款音色全部只凭文字描述设计，不模仿任何真人。
 - **克隆音色**：只能进本机个人音色库，不随项目分发，用于成片时会提醒确认授权。
 - **AI 标识**：成片首帧和 MP4 元数据都带 AI 生成标识，发布文案里附 AI 生成声明。
 - **出处**：每张图都署原文出处。
@@ -246,7 +246,7 @@ article2media 从第一版到现在的 1.6.0，前后三天、八个版本。下
 
 所以音色库按版权分成了两层：
 
-- **公开音色**：随项目分发的 7 款，全部只凭文字描述生成。我们先归纳受欢迎音色的风格特征，再用文字重新设计，生成多个候选，最后由人耳挑选。
+- **公开音色**：随项目分发的 6 款，全部只凭文字描述生成。我们先归纳受欢迎音色的风格特征，再用文字重新设计，生成多个候选，最后由人耳挑选。
 - **本机个人音色库**：克隆来的声音只能放在这里，只供本人制作。
 
 默认永远使用公开音色。
@@ -392,7 +392,7 @@ article2media 是一个开源的 Claude Code / Codex Skill，也是 Claude Code 
 能。说「做成口播视频」，Claude 会先写分镜脚本，再由脚本完成配音、逐字对齐、动画、字幕、封面和审片，产出 1080×1920 的竖屏视频。
 
 - **配音**：Apple Silicon 上用本地 VoxCPM2，其他机器用免费的 edge-tts 或系统语音。
-- **音色**：随包 7 款。
+- **音色**：随包 6 款。
 
 ### 需要付费 API 或 GPU 吗？
 
@@ -400,7 +400,7 @@ article2media 是一个开源的 Claude Code / Codex Skill，也是 Claude Code 
 
 ### 配音可以商用吗？
 
-- **随包音色**：7 款都由 VoxCPM2 只凭文字描述生成，不模仿任何真人。
+- **随包音色**：6 款都由 VoxCPM2 只凭文字描述生成，不模仿任何真人。
 - **克隆音色**：只能放在本机个人音色库，不随项目分发；使用时会提醒你确认授权。
 - **AI 标识**：成片带 AI 生成标识。
 

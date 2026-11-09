@@ -46,7 +46,8 @@ export async function renderWhiteboard(input, { opt, THEMES_DIR, readCss }) {
     credit = `来源：${[meta.author && `${meta.author}${meta.handle ? `（${meta.handle}）` : ''}`, meta.title && `《${meta.title}》`, meta.platform, meta.date].filter(Boolean).join('，')}。论证结构由编者整理。`;
   }
   const images = {};
-  for (const s of wb.steps) if (s.image?.src) images[s.id] = s.image.src.startsWith('/') ? pathToFileURL(s.image.src).href : s.image.src;
+  // Local images resolve against whiteboard.json's directory (the page itself is written one level down).
+  for (const s of wb.steps) if (s.image?.src) images[s.id] = /^(https?|data|file):/i.test(s.image.src) ? s.image.src : pathToFileURL(path.resolve(dir, s.image.src)).href;
   const outDir = path.resolve(opt.out || path.join(dir, useTheme ? `${opt.theme}-whiteboard` : 'whiteboard'));
   fs.mkdirSync(path.join(outDir, 'review'), { recursive: true });
   const htmlPath = path.join(outDir, 'whiteboard.html');

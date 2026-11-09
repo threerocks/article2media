@@ -233,8 +233,10 @@ async function newPage(cdp) {
         return Promise.race([work, deadline]);
       }, timeout);
     },
-    async screenshot({ clip, format = 'png', quality } = {}) {
-      const params = { format, captureBeyondViewport: true, fromSurface: true };
+    // beyond: capture outside the viewport (tall pages). Video frames pass false: with it on, a seek followed at once
+    // by a capture sometimes gets a layer that is not rastered yet (79 of 2116 frames lost their caption).
+    async screenshot({ clip, format = 'png', quality, beyond = true } = {}) {
+      const params = { format, captureBeyondViewport: beyond, fromSurface: true };
       if (clip) params.clip = { scale: 1, ...clip };
       if (format === 'jpeg' && quality) params.quality = quality;
       const r = await s('Page.captureScreenshot', params);

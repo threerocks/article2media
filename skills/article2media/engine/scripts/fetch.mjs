@@ -15,6 +15,7 @@ import { parseArgs } from 'node:util';
 import { launchBrowser } from './lib/chrome.mjs';
 import { detectVideoInput } from './lib/media/transcript.mjs';
 import { fetchVideo } from './lib/media/source.mjs';
+import { postToMarkdown } from './lib/x-post.mjs';
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
@@ -200,18 +201,7 @@ async function fetchX(url) {
     return { meta: { ...meta, platform: 'X 文章', title: a.title || '', cover, images }, body: markdown };
   }
   // Plain post / long post / thread
-  const parts = [];
-  const pushPost = (p) => {
-    const text = p.raw_text?.text || p.text || '';
-    parts.push(text);
-    for (const ph of p.media?.photos || p.media?.all || []) if (ph.url) parts.push(`![图](${ph.url})`);
-    if (p.quote) parts.push(`> 引用 @${p.quote.author?.screen_name}：${(p.quote.text || '').replace(/\n/g, '\n> ')}`);
-  };
-  const thread = Array.isArray(data.thread) ? data.thread : data.thread?.statuses;
-  if (Array.isArray(thread) && thread.length > 1) thread.forEach(pushPost);
-  else pushPost(st);
-  const first = (st.raw_text?.text || st.text || '').split('\n')[0].slice(0, 60);
-  return { meta: { ...meta, platform: thread?.length > 1 ? 'X 线程' : 'X 帖子', title: first }, body: parts.join('\n\n') };
+  return postToMarkdown(st, data, meta);
 }
 
 // ---------- Generic web pages ----------
@@ -415,6 +405,14 @@ try {
   meta.chars = body.replace(/\s/g, '').length;
   meta.words = (body.match(/[A-Za-z0-9’'-]+/g) || []).length;
   meta.cjk = (body.match(/[一-鿿]/g) || []).length;
+  // Short text + attached media: the substance is probably in the pictures or videos, which fetching does not read.
+  const textChars = body.replace(/!?\[[^\]]*\]\([^)]*\)/g, '').replace(/https?:\/\/\S+/g, '').replace(/\s/g, '').length;
+  const nImg = (body.match(/!\[[^\]]*\]\(/g) || []).length - (meta.videos?.length || 0);
+  let mediaHint = '';
+  if (textChars < 300 && (meta.videos?.length || nImg > 0)) {
+    mediaHint = `正文只有 ${textChars} 字，主要内容可能在${meta.videos?.length ? ` ${meta.videos.length} 段视频` : ''}${meta.videos?.length && nImg > 0 ? '和' : ''}${nImg > 0 ? ` ${nImg} 张图` : ''}里：先看图 / 视频画面把文字整理进 article.md，有配音的视频用 video-transcript 转逐字稿`;
+    console.error(`⚠ ${mediaHint}`);
+  }
 
   outDir ||= path.resolve(opt.out || path.join('article2media-out', slugify(meta)));
   fs.mkdirSync(outDir, { recursive: true });
@@ -436,6 +434,7 @@ try {
     ...(meta.transcript ? { transcript: meta.transcript, segments: meta.segments, timeline: path.join(outDir, 'transcript', 'segments.md') } : {}),
     words: meta.words,
     cjk_chars: meta.cjk,
+    ...(mediaHint ? { media_hint: mediaHint } : {}),
   }, null, 2));
 } catch (e) {
   console.error('[fetch] 失败：' + e.message);

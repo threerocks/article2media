@@ -3,7 +3,7 @@ name: long-image
 description: 长图：两种输入，两种长图。改写稿 content.json → 1–4 张杂志风格长图（每节配图表和数据面板，附执行清单，21 套主题）；文章 article.md（原文、译文、逐字稿）→ 一字不改的原文长图（逐块读回校验，超长自动分张）。可以单独用（已有 content.json 或文章），也可以接在抓取、改写、翻译后面。Use when the user wants a 长图, 总结图, 杂志长图, infographic pages, or 原文长图 / 全文长图 / 原文排版 / 一字不改 / -f from an article or an existing content.json; also to re-render a content.json in another theme (换主题、换风格).
 argument-hint: <content.json|article.md|目录> [--theme 主题名|a,b|all] [--page 1,3] [--out 目录]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.0.0"
+version: "2.0.1"
 ---
 
 # 长图（long-image）

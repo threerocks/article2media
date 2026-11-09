@@ -1,32 +1,7 @@
 {
   "_comment": "随 skill 公开分发的音色。只收两类：VoxCPM2 仅凭文字描述设计、不对应任何具体的人（rights: designed）；本人或取得授权、明确同意公开的声音（rights: self-public / authorized-public）。用国民音色、平台 TTS、网上片段等作参考克隆的声音一律放本机个人音色库（~/.local/share/article2media/voices/），不进这里。",
-  "default": "sunny-narrator",
+  "default": "news-man",
   "voices": [
-    {
-      "id": "sunny-narrator",
-      "name": "阳光解说男声",
-      "fits": "自媒体干货、副业、科技数码、年轻向内容",
-      "rights": "designed",
-      "source": "VoxCPM2 文字设计（不对应任何具体的人）：二十多岁的年轻男性，声音明亮清爽、有活力，咬字干净利落；语速放慢，平稳从容，不急不躁，娓娓道来",
-      "reference_audio": "sunny-narrator.wav",
-      "reference_text": "sunny-narrator.txt",
-      "ref_f0": 208,
-      "rate": 4.22,
-      "steps": 16,
-      "cfg": 2,
-      "seconds": 10.18,
-      "sha256": "5f4aeab41b4523909be4346ec7fda5ac7831f8aa688844cd81f67fe437b552f8",
-      "original": {
-        "file": "sunny-narrator-from-sunny-narrator-949e0a-22.wav",
-        "sample_rate": 48000,
-        "kbps": 768,
-        "segment": [
-          0,
-          10.24
-        ]
-      },
-      "imported": "2026-11-08"
-    },
     {
       "id": "sweet-woman",
       "name": "甜美知性女声",

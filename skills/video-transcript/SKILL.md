@@ -3,7 +3,7 @@ name: video-transcript
 description: 视频转文字：把一条视频转成带时间轴的逐字稿文章（article.md + transcript/segments.md）。支持抖音（链接、短链、整段分享口令）、YouTube、B 站链接，本地视频 / 音频（mp4、mov、mp3、m4a、wav…），.srt / .vtt 字幕文件。文字来源依次是人工字幕、平台原语言自动字幕、本地 Whisper 识别；自动转简体、补标点、分段、专有名词提示与纠错。可以单独用，也是"视频转图文 / 视频转小红书"组合的第一步。Use when the user wants a video's subtitles, transcript or text (视频转文字、逐字稿、提取字幕、视频文案、听写这段录音), or gives a Douyin / YouTube / Bilibili link or a video/audio/subtitle file that another article2media skill should work from.
 argument-hint: <视频链接|分享口令|音视频文件|.srt/.vtt> [--prompt "人名 术语"] [--terms 词表.txt] [--lang auto|zh|en] [--out 目录]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.0.0"
+version: "2.0.1"
 ---
 
 # 视频转文字（video-transcript）

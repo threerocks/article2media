@@ -225,6 +225,35 @@ const STAGE_JS = String.raw`
 })();
 `;
 
+/**
+ * Frames of the encoded video in which a caption should be fully shown but the caption band is empty (the caption
+ * flickers out for a frame). Measured on the real pixels: horizontal edge energy of the band, which text produces
+ * and an empty band does not. Returns { frames: [frame numbers], checked } or null when it cannot measure.
+ */
+export function captionDropouts(mp4, captions, fps) {
+  // .v-cap: left 30, right 72, top 676, height 64 CSS px on a 540×960 stage rendered at 2×.
+  const W = 292, H = 32;
+  const r = spawnSync('ffmpeg', ['-v', 'error', '-i', mp4, '-vf', `crop=876:128:60:1352,scale=${W}:${H},format=gray`, '-f', 'rawvideo', '-'], { maxBuffer: 1 << 28 });
+  if (r.status !== 0 || !r.stdout?.length) return null;
+  const n = W * H, total = Math.floor(r.stdout.length / n);
+  const energy = (f) => {
+    let e = 0;
+    for (let y = 0; y < H; y++) for (let x = 1; x < W; x++) e += Math.abs(r.stdout[f * n + y * W + x] - r.stdout[f * n + y * W + x - 1]);
+    return e / n;
+  };
+  // Only frames where a caption is fully up (after its fade-in, before its fade-out).
+  const want = [];
+  for (let f = 0; f < total; f++) {
+    const t = f / fps;
+    if (captions.some((c) => t >= c.t + (c.fadeIn === false ? 0.04 : 0.2) && t <= c.until - (c.fadeOut === false ? 0.04 : 0.25))) want.push([f, energy(f)]);
+  }
+  if (!want.length) return { frames: [], checked: 0 };
+  const sorted = want.map((w) => w[1]).sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  if (median < 0.5) return null; // nothing measurable in the band (e.g. captions off)
+  return { frames: want.filter(([, e]) => e < median * 0.3).map(([f]) => f), checked: want.length };
+}
+
 function ff(args, opts = {}) {
   const r = spawnSync('ffmpeg', ['-hide_banner', '-v', 'error', '-y', ...args], { encoding: 'utf8', maxBuffer: 64 << 20, ...opts });
   if (r.status !== 0) throw new Error(`ffmpeg 失败：${(r.stderr || '').slice(-800)}`);
@@ -255,6 +284,7 @@ export async function renderVideo(video, align, opts) {
 
   const browser = await launchBrowser();
   const issues = [];
+  let capDrops = null;
   try {
     const page = await browser.newPage();
     await page.setViewport(540, 960, 2);
@@ -304,7 +334,7 @@ export async function renderVideo(video, align, opts) {
     for (let f = 0; f < nFrames; f++) {
       const t = f / fps;
       await page.evaluate(`window.__seek(${t})`);
-      const buf = await page.screenshot({ clip: { x: 0, y: 0, width: 540, height: 960 }, format: 'jpeg', quality: 92 });
+      const buf = await page.screenshot({ clip: { x: 0, y: 0, width: 540, height: 960 }, format: 'jpeg', quality: 92, beyond: false });
       if (!enc.stdin.write(buf)) await new Promise((r) => enc.stdin.once('drain', r));
       const want = sheetTimes.find((s) => !s.done && t >= s.t);
       if (want) { want.done = true; const p = path.join(out, 'review', `f-${String(sheet.length).padStart(2, '0')}.jpg`); fs.writeFileSync(p, buf); sheet.push({ ...want, file: p }); }
@@ -315,6 +345,7 @@ export async function renderVideo(video, align, opts) {
     await new Promise((r) => enc.on('close', r));
     if (!fs.existsSync(silentMp4)) throw new Error(`编码失败：${encErr.slice(-500)}`);
     log(`  ${nFrames} 帧，用时 ${((Date.now() - t0) / 1000).toFixed(0)}s`);
+    capDrops = captionDropouts(silentMp4, data.captions, fps);
 
     // Cover images: full 9:16 frame 0 and a 3:4 center crop for 小红书-style covers.
     ff(['-i', path.join(out, 'cover.jpg'), path.join(out, 'cover.png')]);
@@ -360,7 +391,7 @@ export async function renderVideo(video, align, opts) {
   const srt = data.captions.map((c, k) => `${k + 1}\n${tc(c.t)} --> ${tc(c.until)}\n${c.html.replace(/<[^>]+>/g, '')}\n`).join('\n');
   fs.writeFileSync(path.join(out, 'captions.srt'), srt);
 
-  return { mp4, total, VO, captions: data.captions, captionStyle: data.captionStyle, events: data.events, karaoke: data.karaoke, issues, loudness: loud };
+  return { mp4, total, VO, fps, captions: data.captions, captionStyle: data.captionStyle, events: data.events, karaoke: data.karaoke, issues, loudness: loud, capDrops };
 }
 
 const tc = (t) => {

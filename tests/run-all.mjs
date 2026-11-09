@@ -28,6 +28,8 @@ const quick = process.argv.includes('--quick');
 const onlyThemes = process.argv.includes('--themes') ? process.argv[process.argv.indexOf('--themes') + 1] : null;
 
 const run = (args) => exec(RENDER, args);
+// A 1×1 PNG for tests that need a local picture.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -79,6 +81,25 @@ console.log('== Skills');
   fs.copyFileSync(wrapper('image-cards', 'cards'), path.join(lone, 'scripts', 'cards.mjs'));
   r = exec(path.join(lone, 'scripts', 'cards.mjs'), ['--list']);
   check('单独拷走一个 skill、旁边没有 article2media → 明确提示要一起安装', r.code === 2 && /找不到共享引擎/.test(r.out), r.out);
+
+  // X posts whose substance is in attached videos: no network, a FxTwitter-shaped fixture.
+  const { postToMarkdown } = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'x-post.mjs')).href);
+  const st = {
+    text: '標題の行\n\n本文です。',
+    raw_text: { text: '標題の行\n\n本文です。 https://t.co/lnk https://t.co/pic', facets: [
+      { type: 'url', original: 'https://t.co/lnk', replacement: 'https://example.com/page' },
+      { type: 'media', original: 'https://t.co/pic' },
+    ] },
+    media: {
+      photos: [{ type: 'photo', url: 'https://pbs.twimg.com/media/p1.jpg' }],
+      all: [{ type: 'photo', url: 'https://pbs.twimg.com/media/p1.jpg' }, { type: 'video', url: 'https://video.twimg.com/v1.mp4', thumbnail_url: 'https://pbs.twimg.com/thumb1.jpg', duration: 6 }],
+    },
+  };
+  const post = postToMarkdown(st, {}, { source: 'x' });
+  check('X 帖子：视频写成封面图 + 视频链接（不当图片），图片和视频都在；媒体短链去掉、t.co 展开；标题行不重复',
+    post.meta.title === '標題の行' && !post.body.startsWith('標題の行') && !/t\.co/.test(post.body) && post.body.includes('https://example.com/page')
+    && post.body.includes('![图](https://pbs.twimg.com/media/p1.jpg)') && post.body.includes('![图](https://pbs.twimg.com/thumb1.jpg)')
+    && post.body.includes('[▶ 视频（6 秒）](https://video.twimg.com/v1.mp4)') && !/!\[[^\]]*\]\([^)]*\.mp4/.test(post.body) && post.meta.videos?.length === 1, post.body);
 }
 
 // ---------- 1. CLI behaviour ----------
@@ -96,6 +117,23 @@ const tmpContent = (patch) => {
   check('不指定比例 → 长图', r.code === 0 && /版式：长图/.test(r.out), r.out);
   r = run([f, '--out', path.join(OUT, 'd1'), '--page', '1']);
   check('不指定主题且 content 无 theme → editorial（默认）', r.code === 0 && /主题：editorial（默认）/.test(r.out) && fs.existsSync(path.join(OUT, 'd1', 'page-01.png')), r.out);
+}
+{
+  // image figures may point at local files, relative to content.json (e.g. frames cut from a source video).
+  const dir = path.join(OUT, 'localimg');
+  fs.mkdirSync(path.join(dir, 'pics'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'pics', 'a.png'), PNG);
+  const c = JSON.parse(fs.readFileSync(gallery, 'utf8'));
+  c.pages = [c.pages[0]];
+  c.pages[0].sections[0].figures[0] = { type: 'image', src: 'pics/a.png', caption: '本地图片' };
+  const f = path.join(dir, 'content.json');
+  fs.writeFileSync(f, JSON.stringify(c));
+  let r = run([f]);
+  check('配图用本地文件（路径相对 content.json）：长图正常加载、0 错误', r.code === 0 && /版面检查：0 个错误/.test(r.out), r.out);
+  c.pages[0].sections[0].figures[0].src = 'pics/missing.png';
+  fs.writeFileSync(f, JSON.stringify(c));
+  r = run([f, '--check']);
+  check('配图的本地文件不存在 → 报错', r.code !== 0 && /找不到图片文件/.test(r.out), r.out);
 }
 {
   const f = tmpContent({ theme: 'notebook' });
@@ -187,12 +225,15 @@ console.log('\n== 口播视频');
       theme: 'dopamine', voice: { backend: 'say' },
       cover: { kicker: '测试', title: '三个月\n涨到 **1 万**' },
       scenes: [
-        { id: 'a', type: 'number', lines: ['只用 3 个月，粉丝从 0 涨到 1 万。'], label: '粉丝数', from: 0, to: 10000, count_cue: '1 万' },
+        { id: 'a', type: 'number', lines: ['只用 3 个月，粉丝从 0 涨到 1 万。'], label: '粉丝数', from: 0, to: 10000, count_cue: '1 万', image: { src: 'proof.png', cue: '1 万' } },
         { id: 'b', type: 'checklist', lines: ['记住两件事：先定位，再坚持。'], title: '两件事', items: [{ text: '先定位', cue: '先定位' }, { text: '再坚持', cue: '再坚持' }] },
       ],
     }));
+    fs.writeFileSync(path.join(dir, 'proof.png'), PNG);
     r = vrun(['make', f, '--no-images']);
     const od = path.join(dir, 'dopamine');
+    const stage = fs.existsSync(path.join(od, 'stage.html')) ? fs.readFileSync(path.join(od, 'stage.html'), 'utf8') : '';
+    check('口播视频的本地图片按 video.json 所在目录解析', stage.includes(pathToFileURL(path.join(dir, 'proof.png')).href), stage.slice(0, 200));
     const files = ['video.mp4', 'cover.png', 'cover-3x4.jpg', 'captions.srt', 'post.md', 'contact-sheet.jpg', 'review.json'];
     const missing = files.filter((x) => !fs.existsSync(path.join(od, x)));
     check(`video make：出片 + 封面 + 字幕 + 审片（缺 ${missing.length} 个）`, r.code === 0 && !missing.length, r.out + missing.join(','));
@@ -207,6 +248,9 @@ console.log('\n== 口播视频');
       const gap = rev.checks.find((c) => c.check.startsWith('字幕闪断'));
       const pace = rev.checks.find((c) => c.check === '旁白语速');
       check(`字幕不闪断（${gap?.value}），旁白语速有检查（${pace?.value}）`, gap?.ok === true && !!pace, JSON.stringify(rev.checks));
+      // The timeline can be right and the frames still wrong: the review measures the caption band of the finished video.
+      const drop = rev.checks.find((c) => c.check.startsWith('字幕丢帧'));
+      check(`成片逐帧检查字幕：没有丢帧（${drop?.value}）`, drop?.ok === true, JSON.stringify(rev.checks));
       const stage = fs.readFileSync(path.join(od, 'stage.html'), 'utf8');
       check('字幕用主题样式（dopamine → sticker），没有弹跳缩放', /class="v-cap cap-sticker"/.test(stage) && !/cap\.style\.transform/.test(stage), stage.match(/<div class="v-cap[^>]*>/)?.[0] || '');
     }
@@ -292,15 +336,16 @@ console.log('\n== 全文 · 白板 · 漫画');
   check(`-w 来源清单：${inv.sections.length} 段`, r.code === 0 && inv.sections.length >= 10, r.out);
   const wb = { inventory: 'whiteboard-source.json', source_sha256: inv.source_sha256, title: '测试白板', question: '这段测试想说明什么？',
     source_sections: inv.sections.map((x, i) => (i % 3 === 0 ? { id: x.id, disposition: 'omitted', omission_reason: '测试用：格式示例，不参与论证' } : { id: x.id, disposition: 'rendered', step_ids: [i % 2 ? 'step-01' : 'step-02'] })),
-    steps: [{ id: 'step-01', role: 'question', source_refs: [inv.sections[1].id], claim: '问题', support: '支持' }, { id: 'step-02', role: 'conclusion', source_refs: [inv.sections[2].id], claim: '结论', structure: { type: 'chain', items: ['甲', '乙'] } }],
+    steps: [{ id: 'step-01', role: 'question', source_refs: [inv.sections[1].id], claim: '问题', support: '支持', image: { src: 'wb-pic.png' } }, { id: 'step-02', role: 'conclusion', source_refs: [inv.sections[2].id], claim: '结论', structure: { type: 'chain', items: ['甲', '乙'] } }],
     relations: [{ id: 'rel-01', from: 'step-01', to: 'step-02', kind: 'contrast', visibility: 'visible', bridge: '可是测试并不止于此。' }] };
   const wbOk = path.join(dir, 'whiteboard.json'), wbBad = path.join(dir, 'whiteboard-bad.json');
   fs.writeFileSync(wbOk, JSON.stringify(wb));
   fs.writeFileSync(wbBad, JSON.stringify({ ...wb, source_sections: wb.source_sections.slice(1) }));
   r = run([wbBad, '--layout', 'whiteboard', '--check']);
   check('-w 账本：漏处置的原文段落 → 报错', r.code !== 0 && /没有处置/.test(r.out), r.out);
+  fs.writeFileSync(path.join(dir, 'wb-pic.png'), PNG);
   r = run([wbOk, '--layout', 'whiteboard']);
-  check('-w 渲染：0 错误', r.code === 0 && fs.existsSync(path.join(dir, 'whiteboard', 'whiteboard.png')), r.out);
+  check('-w 渲染（步骤配图用相对路径）：0 错误', r.code === 0 && fs.existsSync(path.join(dir, 'whiteboard', 'whiteboard.png')), r.out);
 
   const COMIC = path.join(SKILL, 'scripts', 'comic.mjs');
   const crun = (args) => { const x = spawnSync(process.execPath, [COMIC, ...args], { encoding: 'utf8', timeout: 300000 }); return { code: x.status, out: (x.stdout || '') + (x.stderr || '') }; };
@@ -325,7 +370,7 @@ console.log('\n== 原文卡片 · 公众号排版 · 翻译');
   const para = (i) => `第 ${i} 段：注意力是最稀缺的资源，**没有人知道你**，再好的产品也卖不出去。` + '一个人把内容、产品和分发连成一条线，比一个团队各管一段更快。'.repeat(7) + `这是第 ${i} 段的结尾。`;
   const md = ['---', 'title: "原文卡片测试：一篇很长的文章"', 'author: "作者"', 'platform: "博客"', 'date: "2026-11-09"', 'url: "https://example.com/post"', '---', '',
     '# 原文卡片测试：一篇很长的文章', '', para(1), '', para(2), '', '## 第一部分', '', para(3), '', '> 一段引用：' + '引用里的话也要一字不差。'.repeat(4), '', '- 列表一：' + '每一项都要保留。'.repeat(3), '- 列表二', '- 列表三：' + '长列表项可以在行间断开。'.repeat(5), '',
-    '1. 有序一', '2. 有序二', '', '| 列 A | 列 B |', '| --- | --- |', '| 甲 | 乙 |', '| 丙 | 丁 |', '', '```', 'const x = 1;', '  indented();', '```', '', '---', '', para(4), '', '### 小节', '', para(5), '', para(6), '', '最后一段：结束。'].join('\n');
+    '1. 有序一', '2. 有序二', '', '| 列 A | 列 B |', '| --- | --- |', '| 甲 | 乙 |', '| 丙 | 丁 |', '', '```', 'const x = 1;', '  indented();', '```', '', '---', '', para(4), '', '### 小节', '', para(5), '', para(6), '', '[▶ 视频（6 秒）](https://video.twimg.com/amplify_video/1/vid/v.mp4?tag=29)', '', '最后一段：结束。'].join('\n');
   const art = path.join(dir, 'article.md');
   fs.writeFileSync(art, md);
   let r = exec(wrapper('image-cards', 'cards'), [art, '--ratio', '3:4']);
@@ -346,6 +391,8 @@ console.log('\n== 原文卡片 · 公众号排版 · 翻译');
   const wdir = path.join(dir, 'editorial-wechat');
   const body = fs.existsSync(path.join(wdir, 'article-body.html')) ? fs.readFileSync(path.join(wdir, 'article-body.html'), 'utf8') : '';
   check('公众号排版（原文）：逐块一致、0 错误；标题进标题栏不进正文', r.code === 0 && /全文校验：通过/.test(r.out) && /版面检查：0 个错误/.test(r.out) && !body.includes('原文卡片测试：一篇很长的文章') && body.includes('最后一段：结束。'), r.out);
+  const wnotes = fs.existsSync(path.join(wdir, 'wechat.md')) ? fs.readFileSync(path.join(wdir, 'wechat.md'), 'utf8') : '';
+  check('公众号排版：正文里的视频链接点不开 → 提示，发布步骤列出视频地址', /⚠ 视频：正文有 1 处视频链接/.test(r.out) && wnotes.includes('https://video.twimg.com/amplify_video/1/vid/v.mp4?tag=29'), r.out + wnotes.slice(-300));
   check('公众号排版（原文）：列表写成段落、换行写成 <br>、代码缩进保留', body && !/<ul|<li/.test(body) && /&nbsp;&nbsp;indented\(\);/.test(body) && !/\sclass=|data-source-block/.test(body), body.slice(0, 300));
   // Tamper: a page whose text differs from the ledger must fail the read-back.
   const full = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'layout-full.mjs')).href);

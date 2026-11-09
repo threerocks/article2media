@@ -21,7 +21,7 @@ import { parseArgs } from 'node:util';
 import { validate } from './lib/validate.mjs';
 import { buildPage } from './lib/layout-long.mjs';
 import { buildCards, buildCaption, ratioSpec } from './lib/layout-card.mjs';
-import { resolveIllustrations } from './lib/illustrations.mjs';
+import { resolveIllustrations, resolveImageFigures } from './lib/illustrations.mjs';
 import { qaInPage } from './lib/qa.mjs';
 import { launchBrowser } from './lib/chrome.mjs';
 
@@ -120,6 +120,7 @@ try {
 
 // ---- validate ----
 const { errors, warnings, info } = validate(content, { layout, ratio: ratio || '3:4' });
+for (const m of Array.isArray(content.pages) ? resolveImageFigures(content, path.dirname(contentPath)) : []) errors.push(`${m.where}：找不到图片文件 ${m.src}（本地图片的路径相对 content.json 所在目录）`);
 if (warnings.length) {
   console.log(`⚠ 内容提示（${warnings.length}）：`);
   for (const w of warnings) console.log('  - ' + w);

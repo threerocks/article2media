@@ -129,7 +129,7 @@
 ```json
 { "type": "image", "caption": "…", "src": "https://pbs.twimg.com/media/xxx.jpg", "fit": "cover" }
 ```
-- `src` 用 article.md 里的图片地址；`fit`：`cover`（铺满，默认）或 `contain`。
+- `src` 用 article.md 里的图片地址，或本地图片（路径相对 content.json，例如从原帖视频里截的帧 `cells/pan.png`）；`fit`：`cover`（铺满，默认）或 `contain`。
 
 ### illustration：AI 插画（可选，用户要求时才用）
 ```json

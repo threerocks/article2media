@@ -107,6 +107,21 @@ export function resolveIllustrations(content, theme, dir) {
   return { items, missing, borrowed };
 }
 
+/**
+ * `image` figures may point at a local file (relative to content.json, absolute, or file:). Rewrite those to
+ * file URLs so every layout can load them; returns the ones whose file does not exist.
+ */
+export function resolveImageFigures(content, dir) {
+  const missing = [];
+  (content.pages || []).forEach((pg, pi) => (pg.sections || []).forEach((sec, si) => (sec.figures || []).forEach((f, fi) => {
+    if (f?.type !== 'image' || typeof f.src !== 'string' || /^(https?|data):/i.test(f.src)) return;
+    const file = f.src.startsWith('file:') ? fileURLToPath(f.src) : path.resolve(dir, f.src);
+    if (!fs.existsSync(file)) { missing.push({ where: `第 ${pi + 1} 页第 ${si + 1} 节图 ${fi + 1}`, src: f.src }); return; }
+    f.src = pathToFileURL(file).href;
+  })));
+  return missing;
+}
+
 export const coverIllustrationSrc = (c) => {
   const cv = c.cover?.illustration;
   if (!cv) return '';
