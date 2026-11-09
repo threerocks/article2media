@@ -25,7 +25,8 @@
           9.76
         ]
       },
-      "imported": "2026-11-08"
+      "imported": "2026-11-08",
+      "edge_fallback": "zh-CN-XiaoxiaoNeural"
     },
     {
       "id": "lively-promo",
@@ -50,7 +51,8 @@
           9.28
         ]
       },
-      "imported": "2026-11-08"
+      "imported": "2026-11-08",
+      "edge_fallback": "zh-CN-XiaoyiNeural"
     },
     {
       "id": "news-man",
@@ -75,7 +77,8 @@
         ]
       },
       "imported": "2026-11-07",
-      "rate": 4.57
+      "rate": 4.57,
+      "edge_fallback": "zh-CN-YunyangNeural"
     },
     {
       "id": "documentary-man",
@@ -100,7 +103,8 @@
         ]
       },
       "imported": "2026-11-07",
-      "rate": 4.82
+      "rate": 4.82,
+      "edge_fallback": "zh-CN-YunjianNeural"
     },
     {
       "id": "northeast-guy",
@@ -125,7 +129,8 @@
           8.8
         ]
       },
-      "imported": "2026-11-08"
+      "imported": "2026-11-08",
+      "edge_fallback": "zh-CN-liaoning-YunbiaoNeural"
     },
     {
       "id": "gentle-tw-accent",
@@ -150,7 +155,8 @@
         ]
       },
       "imported": "2026-11-07",
-      "rate": 4.17
+      "rate": 4.17,
+      "edge_fallback": "zh-TW-HsiaoChenNeural"
     }
   ]
 }

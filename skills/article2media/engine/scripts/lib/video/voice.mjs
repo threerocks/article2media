@@ -383,7 +383,7 @@ export async function synthesize(scenes, dir, opts = {}) {
     else if (attempt === 0) log('  全部段落已缓存，直接复用');
     if (fresh) {
       if (backend === 'voxcpm') runVoxcpm(det, voice, items.filter((it) => !fs.existsSync(it.out)), cdir);
-      else if (backend === 'edge') runEdge(voice.edge_fallback, opts.rate || '+0%', items, cdir);
+      else if (backend === 'edge') runEdge(voice.edge_fallback || 'zh-CN-YunxiNeural', opts.rate || '+0%', items, cdir);
       else runSay(items);
     }
     const asr = runAsr(det, items.map((it) => it.out));
