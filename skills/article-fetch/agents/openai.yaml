@@ -1,0 +1,4 @@
+interface:
+  display_name: "文章抓取"
+  short_description: "把 X 长文、网页、公众号文章或本地文件转成干净的 Markdown（article.md）"
+  default_prompt: "使用 $article-fetch 把这篇文章抓下来存成 Markdown。"

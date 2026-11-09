@@ -1,0 +1,4 @@
+interface:
+  display_name: "全文翻译"
+  short_description: "把外文文章完整译成中文，结构逐块对应，脚本检查漏译"
+  default_prompt: "使用 $article-translate 把这篇文章完整翻译成中文。"

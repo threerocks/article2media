@@ -1,0 +1,4 @@
+interface:
+  display_name: "卡片"
+  short_description: "小红书 3:4 / IG 4:5 / 1:1 / 9:16 卡片：改写稿 → 总结卡片；文章 → 原文卡片"
+  default_prompt: "使用 $image-cards 把这篇文章做成小红书 3:4 卡片。"

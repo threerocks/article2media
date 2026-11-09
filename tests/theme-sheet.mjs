@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Contact sheet of every theme: cover card + first section card, 3:4.
 //   node tests/theme-sheet.mjs [content.json] [out.jpg]
-// Defaults: skills/article2media/examples/gallery.json → docs/themes.jpg
+// Defaults: skills/article-rewrite/examples/gallery.json → docs/themes.jpg
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,9 +9,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SKILL = path.join(ROOT, 'skills', 'article2media');
+const SKILL = path.join(ROOT, 'skills', 'article2media', 'engine'); // shared engine
 const { launchBrowser } = await import(path.join(SKILL, 'scripts', 'lib', 'chrome.mjs'));
-const content = path.resolve(process.argv[2] || path.join(SKILL, 'examples', 'gallery.json'));
+const content = path.resolve(process.argv[2] || path.join(ROOT, 'skills', 'article-rewrite', 'examples', 'gallery.json'));
 const out = path.resolve(process.argv[3] || path.join(ROOT, 'docs', 'themes.jpg'));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'a2i-sheet-'));
 

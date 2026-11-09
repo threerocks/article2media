@@ -1,8 +1,8 @@
 #!/bin/bash
-# Check what article2media needs. Installs nothing by itself; prints the commands for anything missing.
+# Check what the article2media skills need. Installs nothing by itself; prints the commands for anything missing.
 set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKILL="$ROOT/skills/article2media"
+SKILL="$ROOT/skills/article2media/engine"   # shared engine used by every skill
 
 echo "== 必需"
 node "$SKILL/scripts/doctor.mjs" >/dev/null && echo "✓ Node 22+ 与 Chrome 可用" || { node "$SKILL/scripts/doctor.mjs"; exit 1; }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "漫画"
+  short_description: "把文章讲的机制做成黑白漫画分镜，附 3:4 卡片（需要出图能力）"
+  default_prompt: "使用 $article-comic 把这篇文章做成漫画。"

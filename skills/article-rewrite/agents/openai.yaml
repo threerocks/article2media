@@ -1,0 +1,4 @@
+interface:
+  display_name: "改写（总结）"
+  short_description: "把文章重组成结构化改写稿 content.json（分节、图表、面板），可导出成文章"
+  default_prompt: "使用 $article-rewrite 把这篇文章改写成改写稿，后面用来出长图和卡片。"

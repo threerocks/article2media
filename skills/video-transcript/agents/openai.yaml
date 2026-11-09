@@ -1,0 +1,4 @@
+interface:
+  display_name: "视频转文字"
+  short_description: "把抖音、YouTube、B 站或本地音视频转成带时间轴的逐字稿文章"
+  default_prompt: "使用 $video-transcript 把这个视频转成逐字稿。"

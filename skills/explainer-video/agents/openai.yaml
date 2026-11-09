@@ -1,0 +1,4 @@
+interface:
+  display_name: "口播视频"
+  short_description: "把文章做成 1080×1920 竖屏讲解视频：配音、逐字动画、字幕、封面"
+  default_prompt: "使用 $explainer-video 把这篇文章做成口播视频。"

@@ -331,7 +331,7 @@ article2media 从第一版到现在的 1.6.0，前后三天、八个版本。下
 - 你同意复用本机浏览器的状态，就加一个参数，交给 yt-dlp 去取；
 - 或者在 App 里把视频保存到本地，直接交文件。
 
-本地文件这条路，用一条 14 分钟的抖音视频完整跑通了。支持哪些来源、文字怎么清理、产出放在哪，见[视频输入说明](https://github.com/threerocks/article2media/blob/main/skills/article2media/references/video-input.md)。
+本地文件这条路，用一条 14 分钟的抖音视频完整跑通了。支持哪些来源、文字怎么清理、产出放在哪，见[视频输入说明](https://github.com/threerocks/article2media/blob/main/skills/video-transcript/references/video-input.md)。
 
 ---
 

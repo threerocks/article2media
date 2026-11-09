@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Regenerate skills/article2media/scripts/lib/media/zh-t2s.mjs from OpenCC's dictionaries.
+"""Regenerate skills/article2media/engine/scripts/lib/media/zh-t2s.mjs from OpenCC's dictionaries.
 
     python3 tests/gen-t2s.py      (needs `pip install opencc-python-reimplemented`)
 """
 import json, os, opencc
 
 D = os.path.join(os.path.dirname(opencc.__file__), 'dictionary')
-OUT = os.path.join(os.path.dirname(__file__), '..', 'skills', 'article2media', 'scripts', 'lib', 'media', 'zh-t2s.mjs')
+OUT = os.path.join(os.path.dirname(__file__), '..', 'skills', 'article2media', 'engine', 'scripts', 'lib', 'media', 'zh-t2s.mjs')
 
 def load(name, keep_identity):
     out = {}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "白板论证"
+  short_description: "把文章的推理过程摊成一条纵向主干的长图，每段原文都有去向"
+  default_prompt: "使用 $logic-whiteboard 把这篇文章的论证过程画成白板。"

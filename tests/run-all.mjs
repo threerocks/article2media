@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// End-to-end self test for the article2media skill.
+// End-to-end self test for the article2media skills (10 capabilities + the article2media entry and its shared engine).
 //
-//   node tests/run-all.mjs            # CLI behaviour + 公众号/插画 checks + full matrix (every example × layout × theme)
-//   node tests/run-all.mjs --quick    # CLI behaviour + one theme per layout
+//   node tests/run-all.mjs            # skills + CLI behaviour + 公众号/插画/原文/翻译 checks + full matrix (every example × layout × theme)
+//   node tests/run-all.mjs --quick    # same checks, one theme per layout
 //
 // Pass = every CLI check behaves as expected and every render reports 0 layout errors.
 // Warnings (e.g. auto-dropped captions on 1:1 cards) are counted and listed, not failed.
@@ -13,17 +13,21 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SKILL = path.join(ROOT, 'skills', 'article2media');
+const SKILLS = path.join(ROOT, 'skills');
+const SKILL = path.join(SKILLS, 'article2media', 'engine'); // shared engine: scripts, layouts, themes, assets
 const RENDER = path.join(SKILL, 'scripts', 'render.mjs');
-const EXAMPLES = fs.readdirSync(path.join(SKILL, 'examples')).filter((f) => f.endsWith('.json')).map((f) => path.join(SKILL, 'examples', f));
+const EXDIR = path.join(SKILLS, 'article-rewrite', 'examples');
+const EXAMPLES = fs.readdirSync(EXDIR).filter((f) => f.endsWith('.json')).map((f) => path.join(EXDIR, f));
+const wrapper = (skill, name) => path.join(SKILLS, skill, 'scripts', `${name}.mjs`);
+const exec = (file, args, timeout = 600000) => {
+  const r = spawnSync(process.execPath, [file, ...args], { encoding: 'utf8', timeout });
+  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
+};
 const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'a2i-test-'));
 const quick = process.argv.includes('--quick');
 const onlyThemes = process.argv.includes('--themes') ? process.argv[process.argv.indexOf('--themes') + 1] : null;
 
-const run = (args) => {
-  const r = spawnSync(process.execPath, [RENDER, ...args], { encoding: 'utf8', timeout: 600000 });
-  return { code: r.status, out: (r.stdout || '') + (r.stderr || '') };
-};
+const run = (args) => exec(RENDER, args);
 
 let failed = 0;
 const check = (name, ok, detail = '') => {
@@ -31,8 +35,54 @@ const check = (name, ok, detail = '') => {
   if (!ok) failed++;
 };
 
+// ---------- 0. Skills: every capability is its own skill, all on one version, all reaching the shared engine ----------
+console.log('== Skills');
+{
+  const plugin = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude-plugin', 'plugin.json'), 'utf8'));
+  const market = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
+  const dirs = fs.readdirSync(SKILLS).filter((d) => fs.statSync(path.join(SKILLS, d)).isDirectory());
+  const bad = [];
+  for (const d of dirs) {
+    const f = path.join(SKILLS, d, 'SKILL.md');
+    if (!fs.existsSync(f)) { bad.push(`${d}: 没有 SKILL.md`); continue; }
+    const fm = fs.readFileSync(f, 'utf8').match(/^---\n([\s\S]*?)\n---/)?.[1] || '';
+    const get = (k) => fm.match(new RegExp(`^${k}:\\s*(.*)$`, 'm'))?.[1]?.replace(/^"|"$/g, '');
+    if (get('name') !== d) bad.push(`${d}: name 是 ${get('name')}`);
+    if (get('version') !== plugin.version) bad.push(`${d}: version ${get('version')} ≠ ${plugin.version}`);
+    if (!get('description') || get('description').length > 1024) bad.push(`${d}: description 缺失或超过 1024 字符`);
+    if (!fs.existsSync(path.join(SKILLS, d, 'agents', 'openai.yaml'))) bad.push(`${d}: 没有 agents/openai.yaml`);
+    // Every ${CLAUDE_SKILL_DIR}/… path a SKILL.md or reference mentions must exist.
+    for (const doc of [f, ...(fs.existsSync(path.join(SKILLS, d, 'references')) ? fs.readdirSync(path.join(SKILLS, d, 'references')).map((x) => path.join(SKILLS, d, 'references', x)) : [])]) {
+      for (const m of fs.readFileSync(doc, 'utf8').matchAll(/\$\{CLAUDE_SKILL_DIR\}\/([\w./-]+\.(?:mjs|md|json))/g)) {
+        if (!fs.existsSync(path.join(SKILLS, d, m[1]))) bad.push(`${d}: ${path.basename(doc)} 提到的 ${m[1]} 不存在`);
+      }
+    }
+  }
+  check(`${dirs.length} 个 skill：SKILL.md 名字与目录一致、版本都是 ${plugin.version}、描述 ≤ 1024 字符、引用的脚本和文档都存在`, dirs.length >= 11 && !bad.length, bad.join('\n'));
+  check('插件与市场版本一致', market.version === plugin.version && market.plugins.every((p) => p.version === plugin.version), JSON.stringify([plugin.version, market.version]));
+  const wrappers = dirs.flatMap((d) => fs.existsSync(path.join(SKILLS, d, 'scripts')) ? fs.readdirSync(path.join(SKILLS, d, 'scripts')).filter((x) => x.endsWith('.mjs')).map((x) => path.join(SKILLS, d, 'scripts', x)) : []);
+  const broken = wrappers.filter((w) => {
+    const src = fs.readFileSync(w, 'utf8');
+    const target = src.match(/new URL\('(\w+\.mjs)', engine\)/)?.[1];
+    return !target || !fs.existsSync(path.join(SKILL, 'scripts', target));
+  });
+  check(`${wrappers.length} 个入口脚本都指向共享引擎里存在的脚本`, wrappers.length >= 17 && !broken.length, broken.join('\n'));
+  let r = exec(wrapper('image-cards', 'cards'), ['--help']);
+  check('入口脚本的用法提示用自己的名字（cards.mjs）', /node cards\.mjs/.test(r.out), r.out);
+  r = exec(wrapper('article-fetch', 'fetch'), ['https://www.bilibili.com/video/BV1NprhBPEtR']);
+  check('文章抓取不处理视频 → 提示改用 video-transcript', r.code !== 0 && /video-transcript/.test(r.out), r.out);
+  r = exec(wrapper('video-transcript', 'transcribe'), ['https://example.com/post']);
+  check('视频转文字不处理文章链接 → 提示改用 article-fetch', r.code !== 0 && /article-fetch/.test(r.out), r.out);
+  // A copy of one skill without the engine next to it must fail with a clear message, not a stack trace.
+  const lone = path.join(OUT, 'lone', 'image-cards');
+  fs.mkdirSync(path.join(lone, 'scripts'), { recursive: true });
+  fs.copyFileSync(wrapper('image-cards', 'cards'), path.join(lone, 'scripts', 'cards.mjs'));
+  r = exec(path.join(lone, 'scripts', 'cards.mjs'), ['--list']);
+  check('单独拷走一个 skill、旁边没有 article2media → 明确提示要一起安装', r.code === 2 && /找不到共享引擎/.test(r.out), r.out);
+}
+
 // ---------- 1. CLI behaviour ----------
-console.log('== CLI');
+console.log('\n== CLI');
 const gallery = EXAMPLES.find((f) => f.endsWith('gallery.json'));
 const tmpContent = (patch) => {
   const c = { ...JSON.parse(fs.readFileSync(gallery, 'utf8')), ...patch };
@@ -70,7 +120,7 @@ const tmpContent = (patch) => {
   r = run([tmpContent({ theme: 'nope' }), '--out', path.join(OUT, 'd4')]);
   check('content.json 里的未知主题 → 报错退出', r.code !== 0 && /没有主题/.test(r.out), r.out);
   r = run([gallery, '--layout', 'wechat', '--check']);
-  check('--layout wechat → 公众号图文', r.code === 0 && /版式：公众号图文/.test(r.out), r.out);
+  check('公众号排版只吃文章：给 content.json → 报错并提示先导出 rewrite.md', r.code !== 0 && /只接受文章/.test(r.out) && /export\.mjs/.test(r.out), r.out);
   r = run([gallery, '--layout', 'wechat', '--ratio', '3:4', '--check']);
   check('公众号 + 比例 → 报错退出', r.code !== 0, r.out);
   r = run(['--list']);
@@ -78,8 +128,8 @@ const tmpContent = (patch) => {
   check(`--list 列出全部主题（${n} 个）`, r.code === 0 && n >= 21, r.out);
 }
 
-// ---------- 1b. 公众号 output + AI illustrations (offline mock provider) ----------
-console.log('\n== 公众号 + AI 插画');
+// ---------- 1b. AI illustrations (offline mock provider) + 改写稿 → rewrite.md → 公众号 ----------
+console.log('\n== AI 插画 + 公众号总结');
 {
   const dir = path.join(OUT, 'ill');
   fs.mkdirSync(dir, { recursive: true });
@@ -91,21 +141,31 @@ console.log('\n== 公众号 + AI 插画');
   fs.writeFileSync(f, JSON.stringify(c));
   let r = run([f, '--out', path.join(dir, 'before'), '--page', '1']);
   check('插画未生成 → 占位框 + 提示（不报错）', r.code === 0 && /插画还没生成/.test(r.out), r.out);
-  const ILL = path.join(SKILL, 'scripts', 'illustrate.mjs');
-  const g = spawnSync(process.execPath, [ILL, f, '--provider', 'mock'], { encoding: 'utf8' });
+  r = exec(wrapper('article-rewrite', 'export'), [f]);
+  check('插画未生成时导出文章 → 报错（不交付占位框）', r.code !== 0 && /插画还没生成/.test(r.out), r.out);
+  const g = exec(wrapper('article-rewrite', 'illustrate'), [f, '--provider', 'mock']);
   const files = fs.existsSync(path.join(dir, 'illustrations')) ? fs.readdirSync(path.join(dir, 'illustrations')).filter((x) => x.endsWith('.svg')) : [];
-  check(`illustrate.mjs --provider mock 生成 2 张（实际 ${files.length}）`, g.status === 0 && files.length === 2, (g.stdout || '') + (g.stderr || ''));
-  for (const lay of [[], ['--ratio', '3:4'], ['--layout', 'wechat']]) {
+  check(`illustrate.mjs --provider mock 生成 2 张（实际 ${files.length}）`, g.code === 0 && files.length === 2, g.out);
+  for (const lay of [[], ['--ratio', '3:4']]) {
     r = run([f, ...lay, '--out', path.join(dir, lay[1] || 'long')]);
     const m = r.out.match(/版面检查：(\d+) 个错误/);
     check(`有插画 · ${lay[1] || 'long'}：0 错误、无占位`, r.code === 0 && m && m[1] === '0' && !/插画还没生成/.test(r.out), r.out);
   }
   r = run([f, '--theme', 'brutal', '--out', path.join(dir, 'brutal'), '--page', '1']);
   check('别的主题没有专属插画 → 借用并提示', r.code === 0 && /借用了 dopamine 主题的插画/.test(r.out), r.out);
-  const body = fs.readFileSync(path.join(dir, 'wechat', 'article-body.html'), 'utf8');
+
+  // 公众号总结：content.json → export → rewrite.md → wechat-layout
+  r = exec(wrapper('article-rewrite', 'export'), [f]);
+  const rmd = path.join(dir, 'rewrite.md');
+  const md = fs.existsSync(rmd) ? fs.readFileSync(rmd, 'utf8') : '';
+  const figs = fs.existsSync(path.join(dir, 'rewrite-assets')) ? fs.readdirSync(path.join(dir, 'rewrite-assets')).filter((x) => /^fig-.*\.png$/.test(x)) : [];
+  check(`导出 rewrite.md：front matter 带主题与来源，图表转成图片（${figs.length} 张）+ 题图`, r.code === 0 && /kind: "rewrite"/.test(md) && /theme: "dopamine"/.test(md) && /hero: "rewrite-assets\/hero\.png"/.test(md) && figs.length >= 4 && /!\[图 1A\]\(rewrite-assets\/fig-1A\.png\)/.test(md), r.out + md.slice(0, 400));
+  r = exec(wrapper('wechat-layout', 'wechat'), [rmd, '--out', path.join(dir, 'wechat')]);
+  check('公众号排版 rewrite.md：主题跟随导出、逐块一致、0 错误', r.code === 0 && /主题：dopamine（文章 front matter 指定）/.test(r.out) && /全文校验：通过/.test(r.out) && /版面检查：0 个错误/.test(r.out), r.out);
+  const body = fs.existsSync(path.join(dir, 'wechat', 'article-body.html')) ? fs.readFileSync(path.join(dir, 'wechat', 'article-body.html'), 'utf8') : '';
   const imgs = (body.match(/<img [^>]*src="data:image\/png;base64,/g) || []).length;
-  check(`公众号正文只有内联样式，图片内嵌（${imgs} 张）`, !/\sclass=|<style|<script/.test(body) && imgs >= 3, body.slice(0, 300));
-  check('公众号封面：头图 + 1:1', ['cover-2.35x1.png', 'cover-1x1.png'].every((x) => fs.existsSync(path.join(dir, 'wechat', x))));
+  check(`公众号正文只有内联样式，图片内嵌（${imgs} 张），没有残留标记属性`, body && !/\sclass=|<style|<script|data-source-block|data-deco/.test(body) && imgs >= figs.length + 1, body.slice(0, 300));
+  check('公众号封面：头图 + 1:1 + 发布信息', ['cover-2.35x1.png', 'cover-1x1.png', 'wechat.md', 'ledger.json'].every((x) => fs.existsSync(path.join(dir, 'wechat', x))));
 }
 
 // ---------- 1c. 口播视频 (offline: system voice) ----------
@@ -256,6 +316,68 @@ console.log('\n== 全文 · 白板 · 漫画');
   check('-c 排版（占位分格）：长漫画 + 3:4 卡片、0 错误', r.code === 0 && fs.existsSync(path.join(dir, 'comic', 'comic.png')) && fs.existsSync(path.join(dir, 'comic', 'card-05.png')), r.out);
 }
 
+// ---------- 1d'. 原文路径：原文卡片、公众号排版（原文）、全文翻译 ----------
+console.log('\n== 原文卡片 · 公众号排版 · 翻译');
+{
+  const dir = path.join(OUT, 'original');
+  fs.mkdirSync(dir, { recursive: true });
+  // A long article with every block type: long paragraphs must split across cards.
+  const para = (i) => `第 ${i} 段：注意力是最稀缺的资源，**没有人知道你**，再好的产品也卖不出去。` + '一个人把内容、产品和分发连成一条线，比一个团队各管一段更快。'.repeat(7) + `这是第 ${i} 段的结尾。`;
+  const md = ['---', 'title: "原文卡片测试：一篇很长的文章"', 'author: "作者"', 'platform: "博客"', 'date: "2026-11-09"', 'url: "https://example.com/post"', '---', '',
+    '# 原文卡片测试：一篇很长的文章', '', para(1), '', para(2), '', '## 第一部分', '', para(3), '', '> 一段引用：' + '引用里的话也要一字不差。'.repeat(4), '', '- 列表一：' + '每一项都要保留。'.repeat(3), '- 列表二', '- 列表三：' + '长列表项可以在行间断开。'.repeat(5), '',
+    '1. 有序一', '2. 有序二', '', '| 列 A | 列 B |', '| --- | --- |', '| 甲 | 乙 |', '| 丙 | 丁 |', '', '```', 'const x = 1;', '  indented();', '```', '', '---', '', para(4), '', '### 小节', '', para(5), '', para(6), '', '最后一段：结束。'].join('\n');
+  const art = path.join(dir, 'article.md');
+  fs.writeFileSync(art, md);
+  let r = exec(wrapper('image-cards', 'cards'), [art, '--ratio', '3:4']);
+  const cdir = path.join(dir, 'full-3x4');
+  const cards = fs.existsSync(cdir) ? fs.readdirSync(cdir).filter((x) => /^card-\d+\.png$/.test(x)) : [];
+  const qa = fs.existsSync(path.join(cdir, 'qa.json')) ? JSON.parse(fs.readFileSync(path.join(cdir, 'qa.json'), 'utf8')) : {};
+  check(`原文卡片 3:4：${cards.length} 张，逐块一致（段落跨卡拼接）、0 错误`, r.code === 0 && cards.length >= 4 && qa.verify === 'pass' && /版面检查：0 个错误/.test(r.out) && fs.existsSync(path.join(cdir, 'overview.jpg')) && fs.existsSync(path.join(cdir, 'caption.md')), r.out);
+  const html = fs.existsSync(path.join(cdir, 'cards.html')) ? fs.readFileSync(path.join(cdir, 'cards.html'), 'utf8') : '';
+  check('原文卡片：确实有段落在行间断开并在下一张接上', /class="[^"]*ac-cut/.test(html) && /class="[^"]*ac-cont/.test(html));
+  r = exec(wrapper('image-cards', 'cards'), [art, '--ratio', '1:1', '--theme', 'midnight']);
+  check('原文卡片 1:1 + 深色主题：0 错误（含正文对比度）', r.code === 0 && /版面检查：0 个错误/.test(r.out) && fs.existsSync(path.join(dir, 'midnight-full-1x1', 'card-01.png')), r.out);
+  r = exec(wrapper('long-image', 'long'), [art, '--theme', 'midnight']);
+  check('原文长图 + 深色主题：正文对比度够、0 错误', r.code === 0 && /版面检查：0 个错误/.test(r.out) && !/对比度/.test(r.out), r.out);
+  r = exec(wrapper('long-image', 'long'), [art]);
+  check('长图 skill 给文章 → 原文长图，逐字一致', r.code === 0 && /逐字一致/.test(r.out) && fs.existsSync(path.join(dir, 'full', 'full.png')), r.out);
+
+  r = exec(wrapper('wechat-layout', 'wechat'), [art, '--theme', 'editorial', '--cover-title', '原文卡片测试\\n一篇很长的文章']);
+  const wdir = path.join(dir, 'editorial-wechat');
+  const body = fs.existsSync(path.join(wdir, 'article-body.html')) ? fs.readFileSync(path.join(wdir, 'article-body.html'), 'utf8') : '';
+  check('公众号排版（原文）：逐块一致、0 错误；标题进标题栏不进正文', r.code === 0 && /全文校验：通过/.test(r.out) && /版面检查：0 个错误/.test(r.out) && !body.includes('原文卡片测试：一篇很长的文章') && body.includes('最后一段：结束。'), r.out);
+  check('公众号排版（原文）：列表写成段落、换行写成 <br>、代码缩进保留', body && !/<ul|<li/.test(body) && /&nbsp;&nbsp;indented\(\);/.test(body) && !/\sclass=|data-source-block/.test(body), body.slice(0, 300));
+  // Tamper: a page whose text differs from the ledger must fail the read-back.
+  const full = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'layout-full.mjs')).href);
+  const led = [{ id: 'b001', text: '第一行\n第二行' }];
+  check('公众号比对：换行写成 <br> 时仍逐字比对，改一个字照样失败', full.compareLedger(led, { blocks: [{ id: 'b001', text: '第一行第二行' }], nested: [], stray: 0, backwards: 0 }, { looseBreaks: true }).length === 0
+    && full.compareLedger(led, { blocks: [{ id: 'b001', text: '第一行第三行' }], nested: [], stray: 0, backwards: 0 }, { looseBreaks: true }).length > 0);
+
+  // Translation checks.
+  const en = ['---', 'title: "Attention Is the Asset"', 'author: "Dan Koe"', 'platform: "X 文章"', 'url: "https://x.com/thedankoe/status/1"', '---', '', '# Attention Is the Asset', '',
+    'The most lucrative skill has always been capturing attention. If nobody knows who you are, nobody pays you.', '', '## Why it matters', '', '- Brands spent $13.9B on creators in 2021.', '- That number may reach $43.9B by 2026.', '',
+    '```', 'prompt: write 3 hooks', '```', '', 'That is why a one-person creative team can charge $5,000 a month for this work.'].join('\n');
+  const zh = ['---', 'title: "注意力就是资产"', 'author: "Dan Koe"', 'platform: "X 文章"', 'url: "https://x.com/thedankoe/status/1"', 'lang: "zh"', 'translated_from: "article.md"', 'source_title: "Attention Is the Asset"', '---', '', '# 注意力就是资产', '',
+    '最赚钱的技能一直是抓住注意力。如果没人知道你是谁，就没人会付钱给你。', '', '## 为什么重要', '', '- 2021 年，品牌在创作者身上花了 $13.9B。', '- 到 2026 年，这个数字可能达到 $43.9B。', '',
+    '```', 'prompt: write 3 hooks', '```', '', '这就是为什么一人创意团队做这件事每月能收 $5,000。'].join('\n');
+  const tdir = path.join(OUT, 'translate');
+  fs.mkdirSync(tdir, { recursive: true });
+  fs.writeFileSync(path.join(tdir, 'article.md'), en);
+  fs.writeFileSync(path.join(tdir, 'article.zh.md'), zh);
+  const T = wrapper('article-translate', 'translate');
+  r = exec(T, ['check', path.join(tdir, 'article.md'), path.join(tdir, 'article.zh.md')]);
+  check('翻译检查：结构逐块对应 → 通过', r.code === 0 && /翻译检查：0 个错误，0 个提示/.test(r.out), r.out);
+  fs.writeFileSync(path.join(tdir, 'dropped.md'), zh.replace('- 到 2026 年，这个数字可能达到 $43.9B。\n', ''));
+  r = exec(T, ['check', path.join(tdir, 'article.md'), path.join(tdir, 'dropped.md')]);
+  check('翻译检查：漏一个列表项 → 报错', r.code !== 0 && /块数不一致/.test(r.out), r.out);
+  fs.writeFileSync(path.join(tdir, 'lazy.md'), zh.replace('这就是为什么一人创意团队做这件事每月能收 $5,000。', 'That is why a one-person creative team can charge a lot for this work.').replace('prompt: write 3 hooks', 'prompt: 写 3 个开头'));
+  r = exec(T, ['check', path.join(tdir, 'article.md'), path.join(tdir, 'lazy.md')]);
+  check('翻译检查：代码被翻译 → 报错；有段没翻译、丢了数字 → 提示', r.code !== 0 && /代码块要原样保留/.test(r.out) && /像是没翻译/.test(r.out) && /数字 5000/.test(r.out), r.out);
+  r = exec(wrapper('wechat-layout', 'wechat'), [path.join(tdir, 'article.zh.md'), '--theme', 'quiet']);
+  const tb = fs.existsSync(path.join(tdir, 'quiet-wechat', 'article-body.html')) ? fs.readFileSync(path.join(tdir, 'quiet-wechat', 'article-body.html'), 'utf8') : '';
+  check('外文搬运：译文排公众号，页首注明「中文译文」，逐块一致', r.code === 0 && /全文校验：通过/.test(r.out) && tb.includes('中文译文'), r.out);
+}
+
 // ---------- 1e. 视频输入：视频 → 逐字稿文章 ----------
 console.log('\n== 视频输入');
 {
@@ -296,7 +418,7 @@ console.log('\n== 视频输入');
   check('分段：中文停顿变逗号、段尾补句号、长停顿另起一段（只补标点，不改字）', paras.length === 2 && paras[0].startsWith('剑来第三集，五千字解析，来了，这集') && paras[0].endsWith('几遍。') && paras[1] === '下面进入第二部分。', JSON.stringify(paras));
 
   // End to end, offline: a subtitle file becomes article.md + transcript/.
-  const FETCH = path.join(SKILL, 'scripts', 'fetch.mjs');
+  const FETCH = wrapper('video-transcript', 'transcribe');
   const vdir = path.join(OUT, 'video-input');
   fs.mkdirSync(vdir, { recursive: true });
   const srtFile = path.join(vdir, 'talk-sample.srt');
@@ -320,20 +442,30 @@ console.log('\n== 视频输入');
 }
 
 // ---------- 2. Render matrix ----------
+// Every example × (long, 4 card ratios, 公众号总结 = export → rewrite.md → wechat-layout) × theme(s).
 console.log('\n== 渲染矩阵');
-const layouts = [[], ['--ratio', '3:4'], ['--ratio', '4:5'], ['--ratio', '1:1'], ['--ratio', '9:16'], ['--layout', 'wechat']];
+const layouts = [[], ['--ratio', '3:4'], ['--ratio', '4:5'], ['--ratio', '1:1'], ['--ratio', '9:16'], ['wechat']];
 const themeArg = onlyThemes || (quick ? 'editorial' : 'all');
 const rows = [];
 for (const ex of EXAMPLES) {
   for (const lay of layouts) {
-    const name = `${path.basename(ex, '.json')} · ${lay.length ? lay[1] : 'long'}`;
-    const sub = lay[1]?.replace(':', 'x') || 'long';
+    const isWx = lay[0] === 'wechat';
+    const name = `${path.basename(ex, '.json')} · ${isWx ? 'wechat' : lay.length ? lay[1] : 'long'}`;
+    const sub = isWx ? 'wechat' : lay[1]?.replace(':', 'x') || 'long';
     const t0 = Date.now();
-    const r = run([ex, ...lay, '--theme', themeArg, '--out', path.join(OUT, 'm', path.basename(ex, '.json'), sub)]);
+    let r;
+    if (isWx) {
+      // The exported figures carry one theme; the 公众号 pass then restyles the text with every theme under test.
+      const wd = path.join(OUT, 'm', path.basename(ex, '.json'), 'wechat');
+      fs.mkdirSync(wd, { recursive: true });
+      fs.copyFileSync(ex, path.join(wd, 'content.json'));
+      const e = exec(wrapper('article-rewrite', 'export'), [path.join(wd, 'content.json'), '--theme', themeArg === 'all' ? 'editorial' : themeArg.split(',')[0]]);
+      r = e.code === 0 ? exec(wrapper('wechat-layout', 'wechat'), [path.join(wd, 'rewrite.md'), '--theme', themeArg]) : e;
+    } else r = run([ex, ...lay, '--theme', themeArg, '--out', path.join(OUT, 'm', path.basename(ex, '.json'), sub)]);
     const m = r.out.match(/版面检查：(\d+) 个错误，(\d+) 个提示/);
     const errs = m ? Number(m[1]) : -1;
     const warns = m ? Number(m[2]) : -1;
-    const ok = r.code === 0 && errs === 0;
+    const ok = r.code === 0 && errs === 0 && (!isWx || !/全文校验：未通过/.test(r.out));
     rows.push({ name, ok, errs, warns, secs: Math.round((Date.now() - t0) / 1000), warnLines: r.out.split('\n').filter((l) => /^\s+⚠/.test(l)) });
     check(`${name}（${themeArg === 'all' ? '全部主题' : themeArg}）：${errs} 错误，${warns} 提示，${rows.at(-1).secs}s`, ok, r.out);
   }

@@ -1,14 +1,15 @@
 # 风格（主题）
 
-主题只是一个 CSS 文件：`themes/<名称>.css`。它主要定义变量（颜色、字体、圆角），版式结构由 `layouts/` 负责。
-所以**同一份 content.json 可以用任何主题渲染**，长图和卡片也都适用，换风格不用改内容。
+主题只是一个 CSS 文件：`engine/themes/<名称>.css`。它主要定义变量（颜色、字体、圆角），版式结构由 `engine/layouts/` 负责。
+所以**同一份 content.json、同一篇文章可以用任何主题渲染**，长图、卡片、公众号都适用，换风格不用改内容。
 
 ```bash
-node scripts/render.mjs --list                                 # 列出所有主题
-node scripts/render.mjs content.json                           # 用 content.json 里的 "theme"
-node scripts/render.mjs content.json --theme notebook          # 指定主题（覆盖 content.json）
-node scripts/render.mjs content.json --theme cloud,earth       # 多个主题，分目录输出
-node scripts/render.mjs content.json --theme all               # 全部主题
+node <long-image>/scripts/long.mjs --list                          # 列出所有主题（任何渲染脚本都支持 --list）
+node <long-image>/scripts/long.mjs content.json                    # 用 content.json 里的 "theme"
+node <long-image>/scripts/long.mjs content.json --theme notebook   # 指定主题（覆盖 content.json）
+node <long-image>/scripts/long.mjs content.json --theme cloud,earth   # 多个主题，分目录输出
+node <long-image>/scripts/long.mjs content.json --theme all        # 全部主题
+node <wechat-layout>/scripts/wechat.mjs article.md --theme quiet   # 文章同理
 ```
 
 ## 内置主题
@@ -81,7 +82,7 @@ node scripts/render.mjs content.json --theme all               # 全部主题
 
 其他情况（长图、公众号、X，或没命中这两条）**保持第 2 步的首选**。
 
-选定后把 `"theme": "<名称>"` 写进 content.json。如果同一篇既出长图又出卡片，而两种场景选出的主题不同，就写成 `"theme": {"long": "midnight", "cards": "brutal"}`。交付时用一句话说明理由，例如："选了 notebook：这是一篇学习方法拆解，格纹手帐风更像一份能收藏的笔记。"
+选定后把 `"theme": "<名称>"` 写进 content.json（只排文章时，用 `--theme` 传给脚本）。如果同一篇既出长图又出卡片，而两种场景选出的主题不同，就写成 `"theme": {"long": "midnight", "cards": "brutal", "wechat": "quiet"}`。交付时用一句话说明理由，例如："选了 notebook：这是一篇学习方法拆解，格纹手帐风更像一份能收藏的笔记。"
 
 一篇文章拿不准时，可以用 `--theme 甲,乙` 出两版，看 overview 挑一个。但最后只交付你推荐的那版，另一版作为备选提一句。
 
