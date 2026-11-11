@@ -170,7 +170,14 @@ export async function launchBrowser() {
       if (m) { clearTimeout(t); resolve(m[1]); }
     });
     proc.on('error', (e) => { clearTimeout(t); reject(e); });
-    proc.on('exit', (code) => { clearTimeout(t); reject(new Error(`Chrome 意外退出（code ${code}）\n${log.slice(-800)}`)); });
+    proc.on('exit', (code) => {
+      clearTimeout(t);
+      // Agent sandboxes (Codex's workspace-write, macOS seatbelt) commonly forbid launching a browser.
+      const hint = process.env.CODEX_SANDBOX || /sandbox|seatbelt|Operation not permitted/i.test(log)
+        ? '\n看起来是在沙箱里运行，沙箱不允许启动 Chrome：给这条出图命令单独放行（允许启动浏览器、写缓存目录），或在沙箱外运行出图这一步。'
+        : '';
+      reject(new Error(`Chrome 意外退出（code ${code}）${hint}\n${log.slice(-800)}`));
+    });
   });
 
   const ws = new WebSocket(wsUrl);
@@ -216,7 +223,9 @@ async function newPage(cdp) {
       const loaded = cdp.waitForEvent('Page.loadEventFired', sessionId, timeout);
       const r = await s('Page.navigate', { url });
       if (r.errorText) throw new Error(`打开页面失败：${r.errorText}（${url}）`);
-      await loaded;
+      try { await loaded; } catch (e) {
+        throw new Error(`${e.message}：页面没在 ${Math.round(timeout / 1000)} 秒内加载完，常见原因是网络图片（例如原文配图）加载慢。再运行一次；经常这样就把图下载到工作目录，用相对路径引用`);
+      }
     },
     async evaluate(fn, arg) {
       const expression = typeof fn === 'function' ? `(${fn.toString()})(${JSON.stringify(arg ?? null)})` : fn;

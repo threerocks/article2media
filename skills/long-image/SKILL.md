@@ -3,10 +3,12 @@ name: long-image
 description: 长图：两种输入，两种长图。改写稿 content.json → 1–4 张总结长图（手机宽度单栏，每节配图表和数据面板，附执行清单；--wide 出 1200 宽双栏杂志版；12 套主推主题）；文章 article.md（原文、译文、逐字稿）→ 一字不改的原文长图（逐块读回校验，超长自动分张）。可以单独用（已有 content.json 或文章），也可以接在抓取、改写、翻译后面。Use when the user wants a 长图, 总结图, 杂志长图, infographic pages, or 原文长图 / 全文长图 / 原文排版 / 一字不改 / -f from an article or an existing content.json; also to re-render a content.json in another theme (换主题、换风格).
 argument-hint: <content.json|article.md|目录> [--theme 主题名|a,b|all] [--wide] [--page 1,3] [--out 目录]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 长图（long-image）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 | 输入 | 产出 |
 |---|---|
@@ -36,7 +38,7 @@ node ${CLAUDE_SKILL_DIR}/scripts/long.mjs --list                                
 - content.json 没写主题、用户也没指定时，按 `../article2media/references/styles.md` 选一个，写进 content.json。
 - 有 AI 插画还没生成时会出占位框并提示：用 `article-rewrite` 的 `illustrate.mjs` 生成，生成不了就去掉插画字段。
 
-**检查与修正（最多 2 轮）**
+**检查与修正（最多 2 轮：出图 → 发现问题 → 改 content.json 或参数 → 再出图，算一轮；只跑 check.mjs 不算）**
 1. 版面检查：✗（图内溢出、文字截断、元素重叠、图片加载失败）必须修——缩短图内文字、减少项目，或换一种图；⚠「末行只剩一个字」给那句话增减两三个字；⚠「页面过高」删减内容或拆成两页。
 2. **亲眼看图**：用 Read 打开每张 PNG，看图能不能一眼看懂、图和图注是不是一回事、有没有哪节太空或太挤。
 3. 只改 `content.json`（字段写法见 `../article-rewrite/references/content-schema.md`、`figures.md`），然后重新渲染。不要手改 HTML。

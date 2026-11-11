@@ -10,20 +10,20 @@ export const LABELS = {
     pageShort: (i, n) => `第 ${i} / ${n} 页`,
     fig: '图',
     done: '做完的标准：',
-    footnote: (s, editor) =>
+    footnote: (s, editor, ill = false) =>
       `来源：${[s.author && `${s.author}${s.handle ? `（${s.handle}）` : ''}`, s.title && `《${s.title}》`, s.platform, s.date]
         .filter(Boolean)
-        .join('，')}。框架标签、表格与清单由${editor}整理；插图仅作示意。`,
+        .join('，')}。框架标签、表格与清单由${editor}整理${ill ? '；插图仅作示意' : ''}。`,
   },
   en: {
     page: (i, n) => `Page ${pad2(i)} / ${pad2(n)}`,
     pageShort: (i, n) => `Page ${i} / ${n}`,
     fig: 'Fig.',
     done: 'Done when: ',
-    footnote: (s, editor) =>
+    footnote: (s, editor, ill = false) =>
       `Source: ${[s.author && `${s.author}${s.handle ? ` (${s.handle})` : ''}`, s.title && `“${s.title}”`, s.platform, s.date]
         .filter(Boolean)
-        .join(', ')}. Labels, tables and checklists by ${editor}; illustrations are schematic.`,
+        .join(', ')}. Labels, tables and checklists by ${editor}${ill ? '; illustrations are schematic' : ''}.`,
   },
 };
 
@@ -53,6 +53,9 @@ window.__hug = function () {
 window.__hug();
 document.fonts.ready.then(window.__hug);
 </script>`;
+
+/** Does the content carry AI illustrations (so the footnote says they are schematic)? */
+export const hasIllustrations = (c) => !!c.cover?.illustration || (c.pages || []).some((p) => (p.sections || []).some((s) => (s.figures || []).some((f) => f?.type === 'illustration')));
 
 export const accVar = (k, nAcc) => `var(--accent-${(k % nAcc) + 1})`;
 
@@ -158,7 +161,7 @@ export function buildPage(pi, ctx) {
   const firstK = pages.slice(0, pi).reduce((a, p) => a + (p.sections || []).length, 0);
 
   const editor = brand.editor || (lang === 'zh' ? '编者' : 'the editor');
-  const footnote = content.footnote || (content.source ? L.footnote(content.source, editor) : '');
+  const footnote = content.footnote || (content.source ? L.footnote(content.source, editor, hasIllustrations(content)) : '');
   const series = content.series || brand.series || '';
   const meta = [brand.handle, L.pageShort(pi + 1, total)].filter(Boolean).join(' · ');
   const hero = pi === 0 ? coverIllustrationSrc(content) : ''; // AI cover illustration, first page only

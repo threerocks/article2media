@@ -42,6 +42,10 @@ body { width: max-content; background: var(--sheet-bg, #9a9a96); }
 .c-bullets li { position: relative; padding-left: 16px; font-size: 15px; line-height: 1.6; margin-bottom: 4px; }
 .c-bullets li::before { content: ""; position: absolute; left: 2px; top: .72em; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
 
+/* On a card, a figure's note follows its content instead of sitting at the bottom of the canvas, so the
+   figure panel can shrink to what is drawn (charts and absolute stages keep filling their canvas). */
+.c-fig .fx:not(:has(.cv, .tr, .pa, .hb, .fig-svg, .ill, .im)) .fx-body { flex: 0 1 auto; }
+
 /* Figures fill the space left on the card. The canvas is drawn at a fixed base size and an inline
    script (window.__fit) scales it to the box, so text inside figures grows with the space available. */
 .c-body > .c-fig { flex: 1 1 0; min-height: 110px; display: flex; flex-direction: column; }

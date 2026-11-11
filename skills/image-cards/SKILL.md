@@ -3,10 +3,12 @@ name: image-cards
 description: 卡片：固定比例的图文卡片组——小红书 3:4（1080×1440）、Instagram 4:5、方图 1:1、竖屏 9:16，附总览图和发帖文案。两种输入：改写稿 content.json → 总结卡片（封面 + 每节一卡 + 清单 + 要点总结，12 套主推主题）；文章 article.md（原文、译文、逐字稿）→ 原文卡片（整篇按顺序分页成卡片，一字不改，逐块校验）。可以单独用，也可以接在抓取、改写、翻译后面。Use when the user wants 小红书图文, 轮播卡片, 知识卡片, 3:4 / 4:5 / 1:1 / 9:16 cards, Instagram carousel, 朋友圈方图, or 原文卡片 / 全文卡片 / 把全文做成小红书 — from an article or an existing content.json.
 argument-hint: <content.json|article.md|目录> [--ratio 3:4|4:5|1:1|9:16 或 小红书/IG] [--covers] [--form quotes|onepage|qa] [--theme 主题名|a,b|all] [--out 目录]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 卡片（image-cards）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 | 输入 | 产出 |
 |---|---|
@@ -36,7 +38,7 @@ node ${CLAUDE_SKILL_DIR}/scripts/cards.mjs <目录>/content.json --form onepage 
 ```
 - **封面多版本、轻量形态、品牌包**（头像、品牌色、期号）：xhs-guide.md 第 2.5 节。用户说"多出几个封面""金句图""一张图讲完""问答形式""加上我的头像 / 做成系列"时用。
 - 主题：content.json 的 `theme`（可写成 `{"long": …, "cards": …}` 分开指定）；都没有时按 `../article2media/references/styles.md` 选。卡片场景的主题调整见 styles.md 第 3 步。
-- **检查（最多 2 轮）**：先看 `overview.jpg`，有问题再打开单张卡。✗ 必须修；报「内容超出」「已自动省略」「图只放大到 x 倍」时，按 xhs-guide.md 第 2 节的顺序处理（缩短 `card.text`、改 `split`、`skip` 次要的节）。只改 content.json 再重渲，不手改 HTML。
+- **检查（最多 2 轮：出图 → 发现问题 → 改 content.json 或参数 → 再出图，算一轮；只跑 check.mjs 不算）**：先看 `overview.jpg`，有问题再打开单张卡。✗ 必须修；报「内容超出」「已自动省略」「图只放大到 x 倍」时，按 xhs-guide.md 第 2 节的顺序处理（缩短 `card.text`、改 `split`、`skip` 次要的节）。**出图阶段最多 2 轮，到了就停**：剩下的 ⚠ 写进交付说明，不要为了让提示归零删掉面板、图或正文（内容比提示数要紧）。check.mjs 的内容提示仍然处理到 0。只改 content.json 再重渲，不手改 HTML。
 
 ## 2. 原文卡片（article.md）
 读 `references/original-cards.md` 和 `../article2media/references/verbatim.md`。

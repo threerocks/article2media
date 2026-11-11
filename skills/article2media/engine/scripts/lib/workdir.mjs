@@ -46,7 +46,7 @@ export const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s)) && !Number.is
 /** Length the way 小红书 counts a title: every code point is one, letters and spaces included (same as layout-card's xhsLen). */
 export const cpLen = (t) => [...String(t ?? '')].length;
 /** Inline marks and forced line breaks removed: "一个人\n指挥**AI 剧组**" → "一个人指挥AI 剧组". */
-export const plainTitle = (t) => String(t ?? '').replace(/\*\*|==|__/g, '').replace(/\s*\n\s*/g, '').trim();
+export const plainTitle = (t) => String(t ?? '').replace(/\*\*|==|__/g, '').replace(/\s*\n\s*/g, (m, i, s) => (/[A-Za-z0-9]/.test(s[i - 1] || '') || /[A-Za-z0-9]/.test(s[i + m.length] || '') ? ' ' : '')).trim();
 
 /** Front matter of an article file as a flat object (values are JSON strings as fetch.mjs writes them, or bare). */
 export function frontMatter(file) {

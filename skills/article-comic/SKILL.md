@@ -3,10 +3,12 @@ name: article-comic
 description: 漫画：把一篇文章讲的机制做成黑白漫画分镜——你写认知因果拍点和固定角色（comic.json），生成图负责角色、场景和动作，HTML 负责旁白、对白、音效字（图里不画字）；同时输出一张长漫画和一组小红书 3:4 卡片。需要出图能力（Codex CLI 登录，或 OpenAI / Gemini 付费 key）。输入是文章（原文、译文、逐字稿）。可以单独用，也可以接在抓取、视频转文字后面。Use when the user wants a 漫画, 连环画, 四格, 分镜, comic strip, "把这篇做成漫画", or -c.
 argument-hint: <article.md|目录|comic.json> [--theme 主题名]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 漫画（article-comic）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 生成图让角色、场景、动作和结果可见；HTML 把文字写准确。同时输出长漫画和 3:4 卡片。
 

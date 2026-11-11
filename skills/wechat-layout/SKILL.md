@@ -3,10 +3,12 @@ name: wechat-layout
 description: 公众号排版：把一篇文章（Markdown）排成能直接粘贴进公众号编辑器的图文——内联样式、图片内嵌、12 套主推主题配色，附 2.35:1 头图、1:1 封面和发布信息（标题、摘要、步骤）；正文一字不改，逐块读回校验。只接受文章：原文（article.md）、译文（article.zh.md）或改写稿导出的文章（rewrite.md，即"总结后发公众号"）。可以单独用，也可以接在抓取、翻译、改写后面。Use when the user wants 公众号排版, 微信公众号文章排版, 推文排版, gzh, mp.weixin formatting, "排成公众号/发公众号", or to paste a Markdown article into the WeChat editor.
 argument-hint: <article.md|rewrite.md|目录> [--theme 主题名] [--title 标题] [--digest 摘要] [--cover-title "两行\n标题"] [--out 目录]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 公众号排版（wechat-layout）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 把一篇**文章**排成可粘贴的公众号图文。正文一字不改；改不改写、译不译，在排版之前决定。
 
@@ -36,7 +38,7 @@ node ${CLAUDE_SKILL_DIR}/scripts/wechat.mjs <目录>/article.md --title "公众�
 - 主题：用户指定 > 文章 front matter 的 `theme` > 按 `../article2media/references/styles.md` 选（没选时是 editorial）。`rewrite.md` 的图表是按导出时的主题截的图，换主题要先重新导出。
 - 标题、摘要、封面标题的写法和限制见 `references/wechat-guide.md`。
 
-## 2. 检查（最多 2 轮）
+## 2. 检查（最多 2 轮：出图 → 发现问题 → 改 content.json 或参数 → 再出图，算一轮；只跑 check.mjs 不算）
 1. 版面检查：✗ 全文校验（逐块不一致）、图片没加载、标题超长、封面标题放不下，都必须修。正文问题改源头（article.md / content.json），不改 HTML。
 2. **亲眼看**：打开 `cover-2.35x1.png`、`cover-1x1.png`；用浏览器或截图看一遍 `article.html` 的手机宽度效果。
 

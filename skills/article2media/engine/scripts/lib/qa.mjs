@@ -165,9 +165,14 @@ export function qaInPage(opts) {
   // 5a) Card figures that had to shrink below a readable scale
   if (typeof window.__fit === 'function') window.__fit();
   for (const card of document.querySelectorAll('[data-card][data-dropped]')) {
-    if (card.dataset.dropped) {
-      issues.push({ level: 'warn', where: where(card.querySelector('.c-body')), msg: `放不下，已自动省略：${card.dataset.dropped}（想保留就缩短 card.text，或用 "mode": "split"）` });
+    if (card.dataset.dropped && card.dataset.dropped !== '图注') {
+      const fix = card.dataset.kind === 'cover' ? '想保留就缩短 cover.subtitle、减少 cover.points，或把标题写短' : card.dataset.kind === 'end' ? '想保留就缩短各节的 takeaway 或 cover.summary' : card.dataset.kind === 'stages' || card.dataset.kind === 'guard' ? '想保留就缩短清单项或 paragraphs[0]' : '想保留就缩短 card.text，或用 "mode": "split"';
+      issues.push({ level: 'warn', where: where(card.querySelector('.c-body')), msg: `放不下，已自动省略：${card.dataset.dropped}（${fix}）` });
     }
+  }
+  for (const card of document.querySelectorAll('[data-card][data-fill]')) {
+    const f = Number(card.dataset.fill);
+    if (card.dataset.fill && f < 0.6) issues.push({ level: 'warn', where: where(card.querySelector('.c-body')), msg: `内容只占了卡片的 ${Math.round(f * 100)}%，有一大块空着：把这张卡的正文写满做法（card.text 60–90 字）、加 1–2 条 bullets，或换一张能画得更满的图` });
   }
   for (const box of document.querySelectorAll('.c-fig-box[data-scale]')) {
     if (box.closest('[hidden]')) continue;

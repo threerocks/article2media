@@ -3,10 +3,12 @@ name: article2media
 description: 把文章或视频一键做成中文视觉内容的总入口：按推荐组合把 10 个可单独使用的能力串起来——文章抓取、视频转文字、改写（总结）、全文翻译、长图、卡片（小红书 3:4 / 4:5 / 1:1 / 9:16）、公众号排版、口播视频、白板论证、漫画。常用组合：原文→改写→长图（默认）、原文→改写→小红书卡片、原文→公众号排版、原文→总结→公众号、外文→翻译→公众号、原文长图 / 原文卡片（一字不改）、视频→逐字稿→改写→长图或卡片、一稿多发（长图 + 小红书 + 公众号）、文章→口播视频。输入：X/Twitter 长文与线程、网页、微信公众号、本地 Markdown、粘贴的正文；抖音、YouTube、B 站链接、本地视频/音频、.srt/.vtt。12 套主推主题，不指定时按内容选。Use when the user gives an article, URL, long post, video link or file and wants it turned into 总结图, 长图, 知识卡片, 小红书图文, 公众号排版, 口播视频, 原文排版, 白板, 漫画 — or wants several of them, or names a combo (一键、组合、全套、一稿多发) — e.g. "把这篇文章做成图/小红书/公众号/视频", "把这个抖音视频做成小红书", "翻译成中文发公众号".
 argument-hint: <url|视频链接|文件|粘贴的正文> [组合名] [-f 原文|-w 白板|-c 漫画] [--ratio 3:4|4:5|1:1|9:16 或 小红书/IG] [公众号] [视频] [--style 主题名|all] [--illustrate] [--verify]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/engine/scripts/doctor.mjs), Bash(node ${CLAUDE_SKILL_DIR}/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../article-fetch/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../video-transcript/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../article-rewrite/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../article-translate/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../long-image/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../image-cards/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../wechat-layout/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../explainer-video/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../logic-whiteboard/scripts/*), Bash(node ${CLAUDE_SKILL_DIR}/../article-comic/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # article2media：推荐组合
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 article2media 由 10 个能力组成，**每个都是独立的 skill**，可以单独用，也可以按任意顺序组装。本 skill 是总入口：听懂用户要什么，选一个组合，依次调用各个能力，最后统一交付。本目录的 `engine/` 是所有能力共用的脚本、主题和版式。
 

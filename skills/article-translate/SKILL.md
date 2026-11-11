@@ -3,10 +3,12 @@ name: article-translate
 description: 全文翻译：把一篇外文文章（多为英文 X 长文、网页、逐字稿）完整译成中文 article.zh.md——不删减、不总结、不改写结构，标题、段落、列表、引用、表格、图片与原文逐块对应，代码和链接原样保留；脚本检查块数和结构是否一致、有没有漏译、没翻译或丢了数字。译文可以直接交付，也可以接原文长图、原文卡片、公众号排版（外文搬运）。Use when the user wants an article translated in full (翻译这篇、全文翻译、译成中文、搬运外文文章、英文转中文发公众号/小红书), or when an article2media original-text layout gets a source in another language than the reader's.
 argument-hint: <article.md|目录> [--to zh|en]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 全文翻译（article-translate）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 把 `article.md` 译成 `article.zh.md`。这是**翻译**，不是改写：一句不删、一句不加，结构与原文逐块对应。要提炼、总结，用 `article-rewrite`。
 

@@ -38,7 +38,7 @@ article2media/
 │   │       └── assets/voices/   # VoxCPM2 designed voices (catalog.json)
 │   └── <capability>/            # SKILL.md, agents/openai.yaml, references/, scripts/ (thin wrappers into the engine)
 │       └── …                    # article-rewrite/examples/: content.json fixtures used by tests and as model examples
-├── tests/                       # run-all.mjs (self-test matrix), unit.mjs (offline, mocked fetch), visual.mjs + baseline/ (pixel regression), theme-sheet.mjs
+├── tests/                       # run-all.mjs (self-test matrix), unit.mjs (offline, mocked fetch), visual.mjs + baseline/ (pixel regression), eval-score.mjs + model-eval.md (model regression), theme-sheet.mjs, showcase.mjs
 ├── scripts/install.sh           # dependency check; prints commands, downloads nothing
 ├── experiments/                 # local prototypes (gitignored)
 └── article2media-out/           # generated output (gitignored)
@@ -53,6 +53,8 @@ article2media/
 - **Batch and feedback live in the entry skill.** `batch.mjs` fetches a list of links through `fetch.mjs` (child process), keeps `article2media-out/batches/<name>/queue.json` + `queue.md`, and recomputes every status from disk (`lib/workdir.mjs` classifies output folders by their files and QA reports); rewriting stays model work. `batch.mjs checklist` writes `publish.md` (upload order, title candidates from `xhs.title` / `wechat.title` / `publish.titles`, platform limits). `stats.mjs` records posts and metric snapshots in `<workdir>/publish.json` and aggregates them into `article2media-out/stats-report.md`; groups with n<5 are marked 样本不足 and `styles.md` step 4 uses only n≥5 rows as a tiebreaker.
 - **Fonts.** Themes `@import` web fonts; `fonts.mjs` (an explicit command) mirrors them into `<cache>/fonts`, and `lib/chrome.mjs` `goto` swaps the `@import` in every built page for the local copy when the manifest has it. Rendering never downloads. Font QA reports per family.
 - **Image generation** (`lib/imagegen.mjs`): one table of default models, overridable by env / `~/.config/article2media/config.json`; falls back to the next provider on auth / quota / availability errors, never on a refusal; reference images work on all three providers.
+- **A rewrite is checked against its article** (`lib/source-check.mjs`, run by `check.mjs` / `render.mjs` when `article.md` sits next to `content.json`): numbers the article never states, first-person headlines for someone else's article, the article's own pictures left unused, and coverage of the numbers it states and the names it repeats. `validate.mjs` adds depth hints (panels, two figures per section, full-card rhythm, a big number that doesn't answer its heading). All are ⚠ — tested models drive every ⚠ to 0, so a requirement that matters to quality belongs here, not only in prose.
+- **Model changes are measured, not assumed.** `tests/eval-score.mjs` scores a finished 改写 → 卡片 work directory (版面 / 规则 / 深度 / 覆盖 / 交付, 100 points, `--ref` for a ratio); `tests/model-eval.md` is the procedure (same prompt to a reference and a smaller model on 3 articles, plus a blind side-by-side review). Keep evaluation articles out of the docs' examples.
 - **Content and style are separate.** Layout CSS + theme CSS (variables plus small structural overrides, loaded last), screenshotted in headless Chrome via the DevTools protocol (`lib/chrome.mjs`).
 - **Verbatim pipelines share one ledger** (`lib/layout-full.mjs`): `loadArticle` (front matter, `parseBlocks`, parser-coverage check), `readbackInPage` (DOM text per `data-source-block`, `[data-deco]` ignored, `merge` joins a block split across cards), `compareLedger` (`looseBreaks` for 公众号, where newlines are `<br>`). Original cards flow blocks in the page (`flowInPage`) and split paragraphs / lists / tables at line, item or row boundaries.
 - **Input:** `fetch.mjs` (`--kind article|video`) turns every source into `article.md`. Videos go through `lib/media/` (Douyin share page → yt-dlp; YouTube / Bilibili subtitles via yt-dlp; else local Whisper; `.srt` / `.vtt` parsed directly) into a verbatim transcript with timestamps in `transcript/`.
@@ -78,6 +80,7 @@ node tests/run-all.mjs                    # full matrix, every main theme
 node tests/run-all.mjs --themes quiet     # only some themes (new theme)
 node tests/unit.mjs                       # offline unit checks (image config / fallback, mocked fetch)
 node tests/visual.mjs [--update]          # pixel regression against tests/baseline/ (needs local fonts; --update after an intended layout change)
+node tests/eval-score.mjs <dir> --ref <dir>   # score a model's 改写 → 卡片 run against a reference (see tests/model-eval.md)
 node tests/theme-sheet.mjs                # regenerate docs/themes.jpg
 claude plugin validate .
 ```

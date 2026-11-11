@@ -3,10 +3,12 @@ name: article-fetch
 description: 文章抓取：把一篇文章转成干净的 Markdown（article.md，带标题、作者、平台、日期、链接的 front matter）。支持 X/Twitter 长文、帖子与线程（FxTwitter，不需要登录）、普通网页、微信公众号文章、本地 Markdown / 文本 / HTML 文件。article2media 的第一步，也可以单独用。Use when the user wants an article, X post or thread, web page or 公众号文章 fetched / saved / converted to Markdown (抓取文章、把这篇存成 markdown、提取正文、导出原文), or when another article2media skill needs the original text from a URL.
 argument-hint: <url|文件> [--out 目录] [--no-proxy] [--title 标题] [--author 作者]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 文章抓取（article-fetch）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 把任意文章变成 `article.md`：后面所有能力（改写、翻译、长图、卡片、公众号、口播、白板、漫画）都从这份文件开始。视频不归这里管，用 `video-transcript`。
 

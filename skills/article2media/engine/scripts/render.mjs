@@ -22,6 +22,7 @@ import { validate } from './lib/validate.mjs';
 import { buildPage } from './lib/layout-long.mjs';
 import { buildCards, buildCaption, ratioSpec, coverVariants, FORMS } from './lib/layout-card.mjs';
 import { resolveBrand, brandCss } from './lib/brand.mjs';
+import { findSource, sourceChecks } from './lib/source-check.mjs';
 import { resolveIllustrations, resolveImageFigures } from './lib/illustrations.mjs';
 import { qaInPage } from './lib/qa.mjs';
 import { launchBrowser } from './lib/chrome.mjs';
@@ -131,23 +132,6 @@ try {
   process.exit(1);
 }
 
-// ---- validate ----
-const { errors, warnings, info } = validate(content, { layout, ratio: ratio || '3:4' });
-for (const m of Array.isArray(content.pages) ? resolveImageFigures(content, path.dirname(contentPath)) : []) errors.push(`${m.where}：找不到图片文件 ${m.src}（本地图片的路径相对 content.json 所在目录）`);
-if (warnings.length) {
-  console.log(`⚠ 内容提示（${warnings.length}）：`);
-  for (const w of warnings) console.log('  - ' + w);
-}
-if (errors.length) {
-  console.log(`✗ 内容错误（${errors.length}），请修正 content.json：`);
-  for (const e of errors) console.log('  - ' + e);
-  process.exit(1);
-}
-const nSec = content.pages.reduce((a, p) => a + p.sections.length, 0);
-const layoutDesc = layout === 'card' ? (opt.covers ? '，只出封面的各个版本' : opt.form ? `，形态：${opt.form}` : `，将生成 ${info.cards} 张 ${spec.name} 卡片`) : `，版式：${opt.wide || ['magazine', 'wide'].includes(opt.layout) ? '宽版杂志长图（1200）' : '手机长图（1080 宽）'}`;
-console.log(`✓ content.json 校验通过：${content.pages.length} 页，${nSec} 节${layoutDesc}`);
-if (opt.check) process.exit(0);
-
 // ---- brand ----
 function loadBrand() {
   const candidates = [
@@ -164,6 +148,36 @@ function loadBrand() {
   return {};
 }
 const brand = resolveBrand({ ...loadBrand(), ...(content.brand || {}) }, { issue: opt.issue ?? content.issue });
+
+// ---- validate ----
+const { errors, warnings, info } = validate(content, { layout, ratio: ratio || '3:4' });
+// Compared with the article it was written from (article.md next to content.json): numbers, voice, pictures.
+const source = findSource(path.dirname(contentPath));
+if (source && Array.isArray(content.pages)) warnings.push(...sourceChecks(content, source.text, { brand }));
+for (const m of Array.isArray(content.pages) ? resolveImageFigures(content, path.dirname(contentPath)) : []) errors.push(`${m.where}：找不到图片文件 ${m.src}（本地图片的路径相对 content.json 所在目录）`);
+if (warnings.length) {
+  console.log(`⚠ 内容提示（${warnings.length}）：`);
+  for (const w of warnings) console.log('  - ' + w);
+}
+if (errors.length) {
+  console.log(`✗ 内容错误（${errors.length}），请修正 content.json：`);
+  for (const e of errors) console.log('  - ' + e);
+  if (opt.check) console.log(`\n内容检查：${errors.length} 个错误，${warnings.length} 个提示。`);
+  process.exit(1);
+}
+const nSec = content.pages.reduce((a, p) => a + p.sections.length, 0);
+const layoutDesc = layout === 'card' ? (opt.covers ? '，只出封面的各个版本' : opt.form ? `，形态：${opt.form}` : `，将生成 ${info.cards === info.cardsMax ? info.cards : `${info.cards}–${info.cardsMax}`} 张 ${spec.name} 卡片${info.cards === info.cardsMax ? '' : '（清单分页出图时才定）'}`) : `，版式：${opt.wide || ['magazine', 'wide'].includes(opt.layout) ? '宽版杂志长图（1200）' : '手机长图（1080 宽）'}`;
+console.log(`✓ content.json 校验通过：${content.pages.length} 页，${nSec} 节${layoutDesc}`);
+if (opt.check) {
+  if (warnings.length) console.log(`还有 ${warnings.length} 条提示：逐条处理到 0，再出图。`);
+  else console.log(`脚本查不了、要你自己看一遍的：
+  - 每个 heading 是一个判断或动作，不是话题名；
+  - 正文转述作者用"他说 / 她认为 / 作者说"（不确定性别就用名字或"作者"），你自己归纳的面板标题写"· 编者归纳"；
+  - 每张大数字卡、金句卡，说的正是这一节标题讲的那件事。`);
+  if (!source) console.log('（没找到同目录的 article.md，跳过了和原文的比对：数字来源、配图、人称。）');
+  console.log(`\n内容检查：0 个错误，${warnings.length} 个提示。`);
+  process.exit(0);
+}
 
 // Lighter forms and cover variants are cut from the same content.json as the full card set.
 const form = opt.form ? { quotes: 'quotes', quote: 'quotes', '金句': 'quotes', onepage: 'onepage', 'one-page': 'onepage', '一页': 'onepage', qa: 'qa', '问答': 'qa' }[opt.form] : '';

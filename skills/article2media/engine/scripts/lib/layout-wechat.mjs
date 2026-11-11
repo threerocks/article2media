@@ -9,7 +9,7 @@
 //   4. swap the placeholders for base64 data URIs and wrap the result in a preview page with a copy button.
 import { esc, md, pad2, plain } from './markup.mjs';
 import { renderFigure } from './figures.mjs';
-import { LABELS, accVar } from './layout-long.mjs';
+import { LABELS, accVar, hasIllustrations } from './layout-long.mjs';
 import { coverIllustrationSrc, coverIllustrationAspect } from './illustrations.mjs';
 import { COVER_DECO } from './layout-card.mjs';
 
@@ -34,7 +34,7 @@ export const WX_LABELS = {
   },
 };
 
-const oneLine = (s) => String(s ?? '').replace(/\s*\n\s*/g, '');
+const oneLine = (s) => String(s ?? '').replace(/\s*\n\s*/g, (m, i, s) => (/[A-Za-z0-9]/.test(s[i - 1] || '') || /[A-Za-z0-9]/.test(s[i + m.length] || '') ? ' ' : ''));
 
 export function wechatMeta(c) {
   const w = c.wechat || {};
@@ -121,7 +121,7 @@ export function buildWechatSource(ctx) {
   const L = LABELS[lang];
   const W = WX_LABELS[lang];
   const editor = brand.editor || (lang === 'zh' ? '编者' : 'the editor');
-  const footnote = c.footnote || (c.source ? L.footnote(c.source, editor) : '');
+  const footnote = c.footnote || (c.source ? L.footnote(c.source, editor, hasIllustrations(c)) : '');
 
   let num = 0;
   const headings = [];

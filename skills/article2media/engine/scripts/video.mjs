@@ -130,7 +130,11 @@ function check(v, media) {
   const m = checkMedia(v, media);
   errs.push(...m.errs);
   warns.push(...m.warns);
-  return { errs, warns, units, estSeconds: units / PACE.target + (v.scenes || []).length * 0.5 + TIMING.coverHold + TIMING.coverFade + TIMING.tail };
+  // Calibrated on real renders: the voice runs a little under the target pace and every line ends in a short breath.
+  const nLines = (v.scenes || []).reduce((a, s) => a + (s.lines || []).length, 0);
+  const estSeconds = units / (PACE.target * 0.93) + nLines * 0.3 + (v.scenes || []).length * 0.5 + TIMING.coverHold + TIMING.coverFade + TIMING.tail;
+  if (estSeconds > 82) warns.push(`预计成片约 ${Math.round(estSeconds)} 秒，超过 80 秒：删掉一镜或压缩口播（目标 50–80 秒）`);
+  return { errs, warns, units, estSeconds };
 }
 
 function readTheme(v, contentObj) {
@@ -141,8 +145,17 @@ function readTheme(v, contentObj) {
 }
 
 function loadContent(v, dir) {
-  if (!v.content) return null;
-  try { return JSON.parse(fs.readFileSync(path.resolve(dir, v.content), 'utf8')); } catch { return null; }
+  if (v.content) { try { return JSON.parse(fs.readFileSync(path.resolve(dir, v.content), 'utf8')); } catch { /* fall back to the article */ } }
+  // No 改写稿: the source credit comes from the article's front matter (video/ sits inside the work directory).
+  for (const d of [dir, path.dirname(dir)]) for (const f of ['article.zh.md', 'article.md']) {
+    const p = path.join(d, f);
+    if (!fs.existsSync(p)) continue;
+    const fm = fs.readFileSync(p, 'utf8').match(/^---\n([\s\S]*?)\n---/);
+    if (!fm) continue;
+    const meta = Object.fromEntries([...fm[1].matchAll(/^(\w+):\s*"?(.*?)"?\s*$/gm)].map((m) => [m[1], m[2]]));
+    return { source: { author: meta.author || '', handle: meta.handle || '', title: meta.title || '', platform: meta.platform || '', date: meta.date || '', url: meta.url || '' } };
+  }
+  return null;
 }
 
 // ---------- images ----------

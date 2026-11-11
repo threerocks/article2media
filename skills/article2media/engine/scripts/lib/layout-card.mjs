@@ -2,7 +2,7 @@
 // Same content.json as the long layout; optional `cover`, `xhs` and per-section `card` hints refine it.
 import { esc, md, pad2, plain, vlen } from './markup.mjs';
 import { renderFigure } from './figures.mjs';
-import { LABELS, accVar, panelBlock } from './layout-long.mjs';
+import { LABELS, accVar, panelBlock, hasIllustrations } from './layout-long.mjs';
 import { coverIllustrationSrc, coverIllustrationAspect } from './illustrations.mjs';
 
 export const RATIOS = {
@@ -252,7 +252,7 @@ export const CARD_STYLES = ['quote', 'number', 'image'];
 /** Full-card variant of a section, when its data is there ("quote" needs a sentence, "number" a value, "image" a figure). */
 export function cardStyle(s) {
   const card = s.card || {};
-  if (!CARD_STYLES.includes(card.style) || card.mode === 'split') return '';
+  if (!CARD_STYLES.includes(card.style)) return ''; // with "mode": "split" the full card comes first, the section's own card second
   if (card.style === 'quote') return card.quote || s.takeaway ? 'quote' : '';
   if (card.style === 'number') return card.number?.value ? 'number' : '';
   return (s.figures || []).length && card.figure !== 'none' ? 'image' : '';
@@ -264,15 +264,22 @@ function secCard(it, L) {
   const figs = s.figures || [];
   const label = `<div class="sec-label">${pad2(it.num)} · ${md(s.label || '')}${it.part === 2 ? ` · ${esc(L.cont)}` : ''}</div>`;
   const heading = `<h2 class="sec-h${it.part === 2 ? ' cont' : ''}" data-qa-text>${md(s.heading)}</h2>`;
-  const fi = card.figure === 'none' ? -1 : Number.isInteger(card.figure) ? card.figure : 0;
+  // The one figure a card shows: card.figure, else the article's own picture if the section has one, else the first.
+  const fi = card.figure === 'none' ? -1 : Number.isInteger(card.figure) ? card.figure : Math.max(0, figs.findIndex((f) => f?.type === 'image'));
+  // "mode": "split" with a style: part 1 is the full card, part 2 is the section's ordinary card (text, figure, takeaway).
+  const styledSplit = it.split && !!cardStyle(s);
 
-  if (it.part === 2) {
+  if (it.part === 2 && !styledSplit) {
     const other = figs.findIndex((_, j) => j !== fi);
     return label + heading + (other >= 0 ? figBlock(figs[other], `${it.num}${'AB'[other]}`, 1) : '') + panelBlock(s.panel);
   }
   const text = card.text ?? s.paragraphs?.[0];
-  const take = s.takeaway ? `<p class="c-take" data-qa-text>${md(s.takeaway)}</p>` : '';
-  const style = cardStyle(s);
+  const style = it.part === 2 ? '' : cardStyle(s);
+  // In a styled split the next card carries the text and takeaway, so neither card repeats the other; a quote card
+  // that borrowed the takeaway already said it.
+  const quoteIsTake = styledSplit && cardStyle(s) === 'quote' && !card.quote;
+  const take = s.takeaway && !(styledSplit && it.part === 1 && style === 'number') && !(it.part === 2 && quoteIsTake)
+    ? `<p class="c-take" data-qa-text>${md(s.takeaway)}</p>` : '';
 
   // Full-card variants: they break the "label, heading, text, figure, takeaway" rhythm of a long carousel.
   if (style === 'quote') {
@@ -283,7 +290,7 @@ function secCard(it, L) {
   if (style === 'number') {
     return label + `<h2 class="sec-h cont" data-qa-text>${md(s.heading)}</h2>` +
       `<div class="cn">${numBlock(card.number, 'cn-num')}</div>` +
-      (text ? `<p class="c-text" data-qa-text${drop(5, '正文')}>${md(text)}</p>` : '') + take;
+      (text && !styledSplit ? `<p class="c-text" data-qa-text${drop(5, '正文')}>${md(text)}</p>` : '') + take;
   }
   if (style === 'image') {
     const f = figs[fi >= 0 ? fi : 0];
@@ -297,7 +304,8 @@ function secCard(it, L) {
   const bullets = card.bullets || [];
   // Optional extras ([data-fill]) appear only when the card has room left after its figure is at full size.
   const fillBullets = !bullets.length && card.fill !== false ? (s.bullets || []).slice(0, 3) : [];
-  const showPanel = card.panel && !it.split && s.panel;
+  // A panel goes on a card only when asked for ("panel": true); the second card of a styled split is an ordinary card.
+  const showPanel = s.panel && card.panel && (!it.split || styledSplit);
   return (
     label +
     heading +
@@ -416,7 +424,7 @@ export function buildCards(ctx) {
   const chip = brandChip(brand);
   const series = c.series || brand.series || '';
   const editor = brand.editor || (lang === 'zh' ? '编者' : 'the editor');
-  const footnote = c.footnote || (c.source ? L.footnote(c.source, editor) : '');
+  const footnote = c.footnote || (c.source ? L.footnote(c.source, editor, hasIllustrations(c)) : '');
   const credit = c.source ? L.credit(c.source) : '';
   const brandLine = [brand.name, brand.handle].filter(Boolean).join(' ');
   // When the piece is the brand owner's own, the source credit already names them.
@@ -543,6 +551,11 @@ window.__fit = function () {
       while (size > 26 && (e.getBoundingClientRect().height > want * lh() + 2 || over())) { size -= 2; e.style.fontSize = size + 'px'; }
     });
 
+    // A cover gives up headline size (down to 70%) before it drops its subtitle or points.
+    if (t && over()) {
+      var t0 = parseFloat(getComputedStyle(t).fontSize), tmin = t0 * 0.7;
+      while (over() && parseFloat(t.style.fontSize || t0) > tmin) t.style.fontSize = (parseFloat(t.style.fontSize || t0) - 2) + 'px';
+    }
     scale(card);
     var box = card.querySelector('.c-fig-box');
     var shown = function () { return box && !box.closest('[hidden]'); };
@@ -600,6 +613,18 @@ window.__fit = function () {
       var inner = Math.max(0, card.querySelectorAll('.c-stage').length - 1); // .c-stages inherits the gap
       if (n + inner > 1 && sp > 4) body.style.gap = Math.min(gap * 2.4, gap + sp / (n - 1 + inner)).toFixed(1) + 'px';
       if (over()) body.style.gap = '';
+    }
+    // How much of an ordinary content card its content actually covers (full-card variants are meant to be airy).
+    card.dataset.fill = '';
+    if (card.classList.contains('c-sec') && !card.matches('.c-quote, .c-number, .c-image')) {
+      var used2 = 0;
+      Array.prototype.forEach.call(body.children, function (c) {
+        if (c.hidden) return;
+        var fc2 = c.querySelector && c.querySelector('.c-fig-box');
+        // A figure counts for what it draws, not for the box it was given.
+        used2 += fc2 && fc2.dataset.need ? c.getBoundingClientRect().height - fc2.clientHeight + Number(fc2.dataset.need) : c.getBoundingClientRect().height;
+      });
+      card.dataset.fill = (used2 / (body.clientHeight - parseFloat(getComputedStyle(body).paddingTop))).toFixed(2);
     }
   });
 };

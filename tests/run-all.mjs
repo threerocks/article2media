@@ -708,6 +708,42 @@ console.log('\n== 批量 · 发布清单 · 发布记录');
   check('批量：batch.mjs 的目录命名规则和 fetch.mjs 一致', !!fn('fetch.mjs') && fn('fetch.mjs') === fn('batch.mjs'));
 }
 
+// ---------- 1g. Rewrite measured against its article (numbers, voice, pictures) + model-eval scoring ----------
+console.log('\n== 改写稿与原文比对');
+{
+  const S = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'source-check.mjs')).href);
+  const art = '# T\n\nShe shipped 2,000+ PRs in December and managed 15 agents, now 200. About 977,930 characters, roughly 420M tokens. 三十五个人。\n\n![a](https://x/1.png)\n\n![b](https://x/2.png)\n';
+  const sec = (extra = {}) => ({ heading: 'h', figures: [{ type: 'quote', text: 'x' }, { type: 'quote', text: 'y' }], ...extra });
+  const base = { title: '他的团队', source: { author: 'Lingxi Li' }, pages: [{ sections: [sec()] }] };
+  const nums = (c) => S.unsourcedNumbers(c, art).map((x) => x.value);
+  check('数字来源：原文写过的、四舍五入的、换单位的、英文月份和中文数字都算有出处',
+    nums({ ...base, pages: [{ sections: [sec({ paragraphs: ['2,000+ 个 PR，12 月，15 → 200，约 97.8 万字符，4.2 亿 token，35 人，这组 12 张图'] })] }] }).length === 0);
+  check('数字来源：原文没有的数字被点名，note 写了"编者换算"的放过',
+    JSON.stringify(nums({ ...base, pages: [{ sections: [sec({ paragraphs: ['效率提高 13 倍'], figures: [{ type: 'stats', items: [{ label: 'x', value: '88%' }], note: '编者换算' }, { type: 'quote', text: 'y' }] })] }] })) === '["13"]');
+  const voice = (c, brand) => S.sourceChecks(c, art, { brand }).filter((w) => /第一人称/.test(w)).length;
+  check('人称：别人的文章标题里写"我"会提示；引号里的原话、voice: self、作者就是品牌本人时不提示',
+    voice({ ...base, cover: { title: '我的团队全是 bot' } }) === 1 && voice({ ...base, cover: { title: '他说「我整天都这么做」' } }) === 0 &&
+    voice({ ...base, voice: 'self', cover: { title: '我的团队' } }) === 0 && voice({ ...base, cover: { title: '我的团队' } }, { name: 'Lingxi Li' }) === 0);
+  check('原文配图：有 2 张以上而一张没用时提示，用了就不提示',
+    S.sourceChecks(base, art).some((w) => /原文有 2 张配图/.test(w)) &&
+    !S.sourceChecks({ ...base, pages: [{ sections: [sec({ figures: [{ type: 'image', src: 'https://x/1.png' }, { type: 'quote', text: 'y' }] })] }] }, art).some((w) => /配图/.test(w)));
+  const { validate } = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'validate.mjs')).href);
+  const six = Array.from({ length: 7 }, (_, i) => sec({ heading: `第 ${i} 节` }));
+  const vw = validate({ title: 't', pages: [{ sections: six }] }, { layout: 'card' }).warnings.join('\n');
+  check('深度提示：数据面板偏少、整页卡偏少会提示', /数据面板/.test(vw) && /整页卡/.test(vw), vw);
+  const mism = validate({ title: 't', pages: [{ sections: [sec({ heading: '每 30 分钟巡检', card: { style: 'number', number: { value: '200+' } } })] }] }, { layout: 'card' }).warnings.join('\n');
+  check('大数字卡：标题里的数字和大数字对不上会提示', /标题说的是 30/.test(mism), mism);
+  // eval-score runs on a finished work directory and reports a total.
+  const wd = path.join(OUT, 'evalscore');
+  fs.mkdirSync(wd, { recursive: true });
+  fs.writeFileSync(path.join(wd, 'article.md'), art);
+  fs.copyFileSync(path.join(EXDIR, 'dan-koe.json'), path.join(wd, 'content.json'));
+  run([path.join(wd, 'content.json'), '--ratio', '3:4', '--out', path.join(wd, 'editorial-3x4'), '--page', '1']);
+  const es = spawnSync(process.execPath, [path.join(ROOT, 'tests', 'eval-score.mjs'), wd, '--json'], { encoding: 'utf8' });
+  let ej = null; try { ej = JSON.parse(es.stdout); } catch {}
+  check('eval-score：给出 0–100 的总分和五项分数', !!ej && ej.rows[0].total > 0 && Object.keys(ej.rows[0].parts).length === 5, es.stdout + es.stderr);
+}
+
 // ---------- 1f. Offline unit checks (local fonts, image providers) + visual regression ----------
 console.log('\n== 单元检查与视觉回归');
 {

@@ -6,7 +6,7 @@
 
 开源 Claude Code / Codex Skills · 抓取 · 视频转文字 · 改写 · 翻译 · 长图 · 小红书卡片 · 公众号排版 · 竖屏口播视频 · 原文排版 · 白板论证 · 漫画 · 批量与发布数据
 
-[![version](https://img.shields.io/badge/version-2.2.0-1f6feb)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-2.3.0-1f6feb)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-2ea043)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A5%2022-339933)](#依赖)
 [![npm deps](https://img.shields.io/badge/npm%20dependencies-0-2ea043)](#设计原则)
@@ -398,7 +398,8 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 
 | 产出 | 检查项 |
 |---|---|
-| 总结长图、总结卡片、封面、轻量形态 | 溢出、截断、重叠、单字成行、页面过高、图片加载失败、字体按家族检查、卡片溢出、图表过小、自动省略了什么；内容校验还会提示节奏偏平（内容卡多却没有整页卡） |
+| 改写稿（和原文比对） | 原文里找不到的数字、别人的文章写成第一人称、原文配图一张没用、原文的具体数字和人名工具名用上了多少；数据面板和整页卡偏少、大数字和标题对不上 |
+| 总结长图、总结卡片、封面、轻量形态 | 溢出、截断、重叠、单字成行、页面过高、图片加载失败、字体按家族检查、卡片溢出、图表过小、自动省略了什么 |
 | 原文长图、原文卡片、公众号排版 | 原文块账本逐块比对（卡片跨卡拼接）、解析覆盖、来源 SHA-256 锁定、实际字体；卡片溢出、张数上限；公众号残留样式、标题长度、封面标题 |
 | 全文翻译 | 块数与结构逐块对应、代码与图片原样、疑似未翻译或漏译、数字是否丢失 |
 | 白板论证 | 论证账本：每段原文都要进入某一步，或写明省略理由 |
@@ -487,6 +488,16 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 - **有本地 Whisper**（Apple Silicon 上装 mlx-whisper 和 whisper-large-v3-turbo 模型）：自动识别。实测 14 分钟的视频 29 秒转完。
 - **没有本地 Whisper**：可以提供 `.srt` / `.vtt` 字幕文件。
 - **人名、术语识别错了**：用 `--prompt` 提示，或用 `--terms` 替换。
+
+### 换一个模型来驱动，效果稳定吗？
+
+版面、格式、原文校验这些由脚本把关，换哪个模型都一样；写作判断（选什么、怎么写）会随模型变化。我们把能写成规则的要求都做成了 `check.mjs` 的提示（数字有没有出处、别人的文章写没写成"我"、原文配图用没用、正文够不够厚、有没有重复），实测较小的模型会把每条提示都处理到 0。
+
+用 3 篇文章（英文技术、中文教程、中文经验）对比 Haiku 和 Opus 的"改写 → 小红书卡片"：
+- 规则层面（`tests/eval-score.mjs` 客观分）：Haiku 从 Opus 的 70%–95% 提到 100% 以上，规则都能守住；
+- 读者层面（另一个模型盲评，不知道哪组是谁做的，三轮、换位）：Haiku 是 Opus 的 85%–91%，平均约 88%。差距主要在理解：漏掉原文的核心方法、把两个相近的数字混为一谈、配图放错节、卡片标题和正文各说一件事。这部分靠规则补不上。
+
+所以重要的内容建议用更强的模型；换模型或改了文档后，按 [`tests/model-eval.md`](tests/model-eval.md) 跑一遍对比。
 
 ### 支持英文文章吗？
 
@@ -632,6 +643,7 @@ node tests/run-all.mjs                          # 4 个示例 × 7 种版式 × 
 node tests/run-all.mjs --themes brutal,dopamine # 只测指定主题
 node tests/unit.mjs                             # 离线单元检查（出图配置与自动切换）
 node tests/visual.mjs                           # 视觉回归：和 tests/baseline/ 逐像素对比（需要本地字体）；有意改版后加 --update
+node tests/eval-score.mjs <目录> --ref <目录>   # 换模型回归：给一次改写 → 卡片的产出打分，和参考模型比（流程见 tests/model-eval.md）
 node tests/theme-sheet.mjs                      # 重新生成 docs/themes.jpg
 node tests/showcase.mjs <工作目录>               # 重新生成 docs/showcase.jpg
 claude plugin validate .

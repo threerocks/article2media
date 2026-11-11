@@ -2,10 +2,10 @@
 // Figures are captured as images by export.mjs and referenced here; panels become headed lists or quotes,
 // takeaways become quotes. Front matter keeps the original article's source fields and the 公众号 title / digest.
 import { plain, pad2 } from './markup.mjs';
-import { LABELS } from './layout-long.mjs';
+import { LABELS, hasIllustrations } from './layout-long.mjs';
 import { WX_LABELS, wechatMeta } from './layout-wechat.mjs';
 
-const oneLine = (s) => String(s ?? '').replace(/\s*\n\s*/g, '');
+const oneLine = (s) => String(s ?? '').replace(/\s*\n\s*/g, (m, i, s) => (/[A-Za-z0-9]/.test(s[i - 1] || '') || /[A-Za-z0-9]/.test(s[i + m.length] || '') ? ' ' : ''));
 // Text that would read as Markdown structure at the start of a line is escaped; inline **bold** is kept.
 const safe = (s) => oneLine(s)
   .replace(/^(#|>|[-*+](?=\s)|`)/, '\\$1')
@@ -25,7 +25,7 @@ export function contentToMarkdown(c, { theme, figs = {}, hero = '', brand = {} }
     square_title: c.cover?.title || c.title || '',
     kicker: c.wechat?.kicker ?? c.series ?? '',
     author: s.author, handle: s.handle, platform: s.platform, date: s.date, url: s.url, source_title: s.title,
-    footnote: c.footnote || (c.source ? L.footnote(s, editor) : ''),
+    footnote: c.footnote || (c.source ? L.footnote(s, editor, hasIllustrations(c)) : ''),
     hero, source_content: 'content.json',
   };
   const out = [];

@@ -3,10 +3,12 @@ name: explainer-video
 description: 口播视频：把一篇文章做成 1080×1920 竖屏讲解视频——你当导演写分镜脚本 video.json（黄金 5 秒钩子、每镜一个意思、回收要点），脚本完成配音（本地 VoxCPM2 / edge-tts / 系统语音，6 款公开音色）、逐字对齐、数字滚动和清单逐条出现等动画、主题样式字幕、封面、混音和自动审片。输入是文章（原文、译文、逐字稿），已有改写稿 content.json 时参考它的事实和结构。可以单独用，也可以接在抓取、视频转文字、改写后面。Use when the user wants a 口播视频, 短视频, 讲解视频, 视频号 / 抖音竖屏视频, 文字转视频, text-to-video or "把这篇文章做成视频".
 argument-hint: <article.md|目录|video.json> [--voice 音色] [--theme 主题名] [--no-images]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 口播视频（explainer-video）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 文章 → 竖屏讲解视频。**你是导演**：读懂内容、决定讲什么和怎么讲，写 `video.json`；脚本负责配音、对齐、动画、渲染、混音和审片。
 

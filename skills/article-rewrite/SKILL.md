@@ -3,10 +3,12 @@ name: article-rewrite
 description: 改写（总结）：把一篇文章读透、重组成一份和风格无关的结构化改写稿 content.json——核心主张、分页分节、每节的判断式标题、要点、金句、两张图表（柱状、流程、对比、结构等 20 多种）和数据面板，可选执行清单、核对数字、AI 插画；还能导出成一篇文章 rewrite.md（图表转成图片）。改写稿交给长图、卡片出图，rewrite.md 交给公众号排版。Use when the user wants an article summarized / restructured / 提炼 / 改写 / 整理成要点 for visual content, wants a 总结 before 长图、小红书卡片 or 公众号, or another article2media skill needs content.json; also when the user wants a structured summary article (总结稿) of a long post.
 argument-hint: <article.md|目录> [--pages N] [--lang zh|en] [--verify] [--illustrate] [--style 主题名]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 改写（article-rewrite）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 把一篇文章**重组**成改写稿 `content.json`：你负责读懂、规划、改写、选图、核对数字；脚本负责校验。改写稿只写内容，不含颜色和字体，换风格不用重写。改写和总结是同一件事。
 
@@ -47,7 +49,9 @@ node ${CLAUDE_SKILL_DIR}/scripts/check.mjs <目录>/content.json --ratio 3:4    
 ```
 - 要出卡片时，再读 `../image-cards/references/xhs-guide.md`，写上 `cover`、`xhs`，需要时给个别节加 `card` 提示。
 - 要出公众号总结时，再读 `../wechat-layout/references/wechat-guide.md`，写上 `wechat.title`、`wechat.digest`。
-- ✗ 必须修完；⚠ 长度提示尽量处理（缩短文字）。
+- ✗ 必须修完。⚠ 提示**逐条处理到 0** 再出图：长度提示缩短文字；"数字在原文里找不到"改成原文数字或在 note 里注明；"第一人称"改成第三人称；"数据面板偏少""整页卡偏少""原文配图一张没用"按提示补上。只有确认提示不适用时才保留，并在交付时说明原因。
+- 校验会和同目录的 `article.md` 比对（数字来源、人称、配图），所以 content.json 要和 article.md 放在一起。
+- 改 content.json 用编辑工具或 `node` / `python` 脚本，不要用 `sed -i`：macOS 和 Linux 的写法不同，改不上也不报错。
 - 讲概念、机制的内容，按 writing-guide 第 6 节把具体情形、判别依据、关系和结果接起来。
 
 ## 4. AI 插画（只在用户要插画或传了 `--illustrate` 时）

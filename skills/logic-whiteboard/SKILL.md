@@ -3,10 +3,12 @@ name: logic-whiteboard
 description: 白板论证：把一篇文章的推理过程摊成一条纵向主干的长图——问题在上，前提、证据、矛盾、转折、分支逐层往下，停在内容自身的收束处；每段原文都必须进入某一步或写明省略理由（论证账本 + 来源清单校验）。输入是文章（原文、译文、逐字稿）。可以单独用，也可以接在抓取、视频转文字、翻译后面。Use when the user wants a 白板, 论证图, 推理过程图, 思路图, argument map, "把这篇的逻辑画出来", or -w.
 argument-hint: <article.md|目录> [--theme 主题名]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.2.0"
+version: "2.3.0"
 ---
 
 # 白板论证（logic-whiteboard）
+
+> 路径约定：文中的 `${CLAUDE_SKILL_DIR}` 指本 SKILL.md 所在的目录。宿主没有替换这个变量时（命令里原样出现 `${CLAUDE_SKILL_DIR}`），把它换成这个目录的绝对路径再运行；`../<名字>/` 指同级的另一个 skill 目录。
 
 呈现作者**怎样一步步走到结论**，不是摘要：读者只看成品，也应能复述"为什么下一步从上一步发生"。
 
