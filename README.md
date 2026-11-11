@@ -2,9 +2,9 @@
 
 # article2media
 
-**把一篇文章或一条视频，一键做成小红书图文、公众号排版和口播短视频。10 个能力各自独立，也能自由组合。**
+**把一篇文章或一条视频，做成能直接发的小红书图文、长图、公众号排版和口播短视频，并且知道哪一版效果更好。**
 
-开源 Claude Code / Codex Skills · 抓取 · 视频转文字 · 改写 · 翻译 · 杂志长图 · 小红书卡片 · 公众号排版 · 竖屏口播视频 · 原文排版 · 白板论证 · 漫画
+开源 Claude Code / Codex Skills · 抓取 · 视频转文字 · 改写 · 翻译 · 长图 · 小红书卡片 · 公众号排版 · 竖屏口播视频 · 原文排版 · 白板论证 · 漫画 · 批量与发布数据
 
 [![version](https://img.shields.io/badge/version-2.2.0-1f6feb)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-2ea043)](LICENSE)
@@ -17,22 +17,24 @@
 
 **article2media** 是一组开源的 Claude Code / Codex Skill，同时也是一个 Claude Code 插件。它把一篇文章或一条视频做成可以直接发布的中文视觉内容。
 
-从 2.0 起，它由 **10 个独立能力**组成：文章抓取、视频转文字、改写（总结）、全文翻译、长图、卡片、公众号排版、口播视频、白板论证、漫画。每个能力都是一个 skill，可以单独用（比如只把自己写的文章排成公众号，或者只把视频转成文字），也可以自由组合。总入口 `/article2media` 提供常用的一键组合。
+它由 **10 个独立能力**组成：文章抓取、视频转文字、改写（总结）、全文翻译、长图、卡片、公众号排版、口播视频、白板论证、漫画。每个能力都是一个 skill，可以单独用（比如只把自己写的文章排成公众号，或者只把视频转成文字），也可以自由组合。总入口 `/article2media` 提供常用的一键组合，以及批量处理和发布数据记录。
 
 - **输入**：
   - 文章：X（Twitter）长文、网页、微信公众号文章，或本地 Markdown；
   - 视频：抖音、YouTube、B 站链接，本地视频或音频，`.srt` / `.vtt` 字幕。视频先转成逐字稿文章。
 - **产出**：
-  - 杂志风长图、小红书 3:4 图文卡片、可直接粘贴的公众号排版；
+  - 手机上直接能读的长图、小红书 3:4 图文卡片、可直接粘贴的公众号排版；
   - 带本地 AI 配音和逐字字幕的竖屏口播视频；
+  - 同一篇的几版封面，以及一页看完、金句图、问答卡这些更轻的形态；
   - 一字不改的原文长图、原文卡片和原文公众号排版；
   - 中文全文译文、白板论证图和黑白漫画。
 - **验收**：每种产出都自动检查，不合格就报错。
+- **发布**：发布清单、备选标题、发布数据记录与对比报告。
 - **依赖**：只需要 Node.js 22 和 Chrome。
 
-![同一篇文章的七种产出](docs/showcase.jpg)
+![同一篇文章的十二种产出](docs/showcase.jpg)
 
-<p align="center"><sub>示例：Dan Koe 的 X 长文《The most lucrative AI business to start in 2027》。七种产出各用了一套主题，口播视频用的是「资讯播报男声」。<a href="docs/samples/dan-koe-video.mp4">看示例视频</a> · <a href="#随包音色">听 6 款音色</a></sub></p>
+<p align="center"><sub>示例：Dan Koe 的 X 长文《The most lucrative AI business to start in 2027》。每种产出各用了一套主题，口播视频用的是「资讯播报男声」。<a href="docs/samples/dan-koe-video.mp4">看示例视频</a> · <a href="#随包音色">听 6 款音色</a></sub></p>
 
 ---
 
@@ -56,11 +58,15 @@ article2media 把这件事交给 AI。你给一个链接，流程分三步：
 | **原文、总结、翻译三条路** | 原文路径一字不改，逐块读回比对；总结路径重组结构、配图表；翻译路径全文不删，脚本检查结构是否逐块对应。三条路都能接到长图、卡片和公众号。 |
 | **文章和视频都能当原文** | 视频先转成逐字稿文章：人工字幕优先，其次平台的原语言自动字幕，都没有时用本地 Whisper 识别。繁体转简体、专有名词纠错、时间轴都会处理好，后面的流程和文章完全一样。 |
 | **先读懂，再排版** | 不是截图，也不是机械摘要。Claude 规划结构、改写标题、挑选图表、核对数字，产出只含内容的 `content.json`。版式和主题由脚本负责，换风格不用重写内容。 |
-| **一份内容，多种产出** | 一次改写，同时出长图、卡片（3:4 / 4:5 / 1:1 / 9:16）和公众号；口播视频、白板、漫画另有专门的脚本。12 套主推主题对所有图文产出通用，口播视频沿用主题的配色、字体和卡片样式。 |
-| **每种产出都有验收** | 版面检查溢出、截断和重叠。原文长图、原文卡片、公众号排版都逐块读回比对，改一个字就失败。翻译检查块数、结构、漏译和数字。白板要求每段原文都有去向。视频审片检查首句时长、画面静止、语速、字幕闪断、成片逐帧的字幕丢帧和响度。不合格就以非零码退出。 |
-| **视频质量达到能发布的水准** | 本地 VoxCPM2 生成 48 kHz 配音，Whisper 逐字对齐，数字和要点在说到的那一刻出现。语速按从容讲解控制在约 4.5 字/秒。字幕不闪烁，样式跟随主题。 |
+| **一份内容，多种产出** | 一次改写，同时出长图、卡片（3:4 / 4:5 / 1:1 / 9:16）和公众号，还能切出一页看完、金句图、问答卡；口播视频、白板、漫画另有专门的脚本。12 套主推主题对所有图文产出通用，口播视频沿用主题的配色、字体和卡片样式。 |
+| **为信息流的第一眼设计** | 封面有 6 种版式（大字钩子、大数字、左右对比、一句论断、插画通栏、目录），可以一次出几版来挑。一组卡片里穿插整页金句、整页大数字和整页图，不再张张同一个结构。卡片自己把空间用满：图表按内容放大，有余量就放大字号、补要点。 |
+| **手机上直接能读** | 长图默认是 1080 宽的单栏手机版，正文不用放大；需要电脑上看或打印时，`--wide` 出 1200 宽的双栏杂志版。 |
+| **认得出是谁的** | 品牌包把头像、品牌色、期号和一行介绍带到封面、末张和长图页脚，做成系列。 |
+| **发出去之后也管** | 批量处理一批链接、给每篇生成发布清单和备选标题；发布后把数据记下来，按平台对比哪种主题、哪种封面效果更好。 |
+| **每种产出都有验收** | 版面检查溢出、截断和重叠。原文长图、原文卡片、公众号排版都逐块读回比对，改一个字就失败。翻译检查块数、结构、漏译和数字。白板要求每段原文都有去向。视频审片检查首句时长、画面静止、语速、字幕闪断、成片逐帧的字幕丢帧和响度。字体按家族检查，没加载的会点名。不合格就以非零码退出。 |
+| **视频质量达到能发布的水准** | 本地 VoxCPM2 生成 48 kHz 配音，Whisper 逐字对齐，数字和要点在说到的那一刻出现。语速按从容讲解控制在约 4.5 字/秒。字幕不闪烁，样式跟随主题。镜头里可以放 AI 插画或原视频片段，可以加你自己的背景音乐。 |
 | **版权与合规写进流程** | 随包 6 款音色全部只凭文字描述设计，不模仿任何真人。克隆音色只留在本机，使用时会提醒。成片首帧和 MP4 元数据都带 AI 生成标识，产出都署原文出处。 |
-| **零依赖，本地优先** | 只需要 Node 22 和一个 Chrome。出图、本地配音、逐字对齐都是可选能力，会自动探测。缺了就降级或明确提示，不会自动下载或安装任何东西。 |
+| **零依赖，本地优先** | 只需要 Node 22 和一个 Chrome。出图、本地配音、逐字对齐都是可选能力，会自动探测。缺了就降级或明确提示，不会自动下载或安装任何东西。主题字体可以一条命令下载到本地，之后出图不联网。 |
 
 ## 快速开始
 
@@ -91,6 +97,8 @@ node skills/article2media/scripts/fonts.mjs    # 可选：把主题字体下载�
 /article2media https://x.com/… 翻译成中文发公众号                        # 外文搬运
 /article2media https://x.com/… 长图、小红书、公众号都要                  # 一稿多发：改写一次，三种产出
 /article2media https://www.bilibili.com/video/BV… 小红书                 # 视频进，图文出
+/article2media https://x.com/… 小红书，多出几个封面                     # 封面多版本，挑一版
+/article2media links.txt 批量，每篇出小红书和长图                        # 一批链接，逐篇做完并给发布清单
 ```
 
 也可以直接用单个能力（插件里名字带 `article2media:` 前缀）：
@@ -112,8 +120,8 @@ node skills/article2media/scripts/fonts.mjs    # 可选：把主题字体下载�
 | `video-transcript` | 视频转文字 | 抖音、YouTube、B 站、本地视频 / 音频、`.srt` / `.vtt` → 逐字稿 `article.md` |
 | `article-rewrite` | 改写（总结） | `article.md` → 改写稿 `content.json`，可导出成文章 `rewrite.md` |
 | `article-translate` | 全文翻译 | `article.md` → `article.zh.md`，结构逐块对应 |
-| `long-image` | 长图 | 改写稿 → 杂志长图；文章 → 一字不改的原文长图 |
-| `image-cards` | 卡片 | 改写稿 → 总结卡片；文章 → 原文卡片（3:4 / 4:5 / 1:1 / 9:16） |
+| `long-image` | 长图 | 改写稿 → 总结长图（手机版，`--wide` 为杂志版）；文章 → 一字不改的原文长图 |
+| `image-cards` | 卡片 | 改写稿 → 总结卡片、封面多版本、一页看完 / 金句图 / 问答卡；文章 → 原文卡片（3:4 / 4:5 / 1:1 / 9:16） |
 | `wechat-layout` | 公众号排版 | 文章（原文、译文或 `rewrite.md`）→ 可粘贴的图文 + 头图 + 封面 |
 | `explainer-video` | 口播视频 | 文章 → 1080×1920 竖屏讲解视频 |
 | `logic-whiteboard` | 白板论证 | 文章 → 纵向推理主干长图 |
@@ -136,6 +144,7 @@ node skills/article2media/scripts/fonts.mjs    # 可选：把主题字体下载�
 | 一稿多发 | 取原文 → 改写一次 → 长图 + 卡片 + 公众号 |
 | 文章转口播 | 取原文 → 口播视频 |
 | 白板 / 漫画 | 取原文 → 白板 / 漫画 |
+| 批量 | 一批链接 → 逐篇按同一规格做完 → 每篇一份发布清单 |
 
 没说要原文还是总结时：长图和卡片默认总结，公众号默认原文排版，外文走原文路径时先翻译。说了"排版 / 原文 / 一字不改"就走原文，说了"总结 / 提炼"就走改写。完整规则见 [`pipeline.md`](skills/article2media/references/pipeline.md)。
 
@@ -143,10 +152,12 @@ node skills/article2media/scripts/fonts.mjs    # 可选：把主题字体下载�
 
 | 产出 | 规格 | 适合 | 触发方式 | 示例里的主题 |
 |---|---|---|---|---|
-| **杂志长图**（默认） | 1200 宽，2 倍图，1–4 页；每节有标题、要点、两张图表和一个数据面板，结尾附执行清单 | 把长文读成一份可收藏的拆解 | 不加参数 | `editorial` |
-| **卡片组** | 小红书 3:4（1080×1440）、IG 4:5、1:1、9:16；封面 + 每节一卡 + 要点，附发帖文案 | 信息流平台 | 提到比例或平台，或 `--ratio 3:4` | `brutal` |
+| **总结长图**（默认） | 手机版：1080 宽单栏，1–4 页；每节有标题、要点、两张图表和一个数据面板，结尾附执行清单。`--wide` 出 1200 宽的双栏杂志版 | 把长文读成一份可收藏的拆解；发微信、朋友圈、微博 | 不加参数 | `editorial` |
+| **卡片组** | 小红书 3:4（1080×1440）、IG 4:5、1:1、9:16；封面（6 种版式）+ 每节一卡（可穿插整页金句、大数字、整页图）+ 清单 + 要点，附发帖文案 | 信息流平台 | 提到比例或平台，或 `--ratio 3:4` | `brutal` |
+| **封面多版本** | 同一篇的几版封面：不同版式，或不同的标题钩子 | 挑封面；分开发布比效果 | 「多出几个封面」，或 `--covers` | `dopamine` |
+| **轻量形态** | 一页看完（一张图讲完全文）、金句图（每句一张）、问答卡（对话气泡） | 高频更新；给整组卡片引流 | 「一张图讲完」「金句图」「问答形式」，或 `--form` | `bento`、`guochao` |
 | **公众号排版** | 任何文章（原文、译文、改写稿导出的文章）排成内联样式、图片内嵌的图文，可直接粘贴进编辑器；另出 2.35:1 头图和 1:1 封面 | 公众号 | 提到「公众号」 | `swiss` |
-| **口播视频** | 1080×1920 竖屏：封面 → 5 秒内说完的钩子 → 逐字同步的动画、配音和字幕 | 抖音、视频号、小红书视频 | 提到「视频 / 口播」 | `midnight` |
+| **口播视频** | 1080×1920 竖屏：封面 → 5 秒内说完的钩子 → 逐字同步的动画、配音和字幕；镜头里可放插画或原视频片段 | 抖音、视频号、小红书视频 | 提到「视频 / 口播」 | `midnight` |
 | **原文长图** | 原文一字不改，白底阅读面，正文 40 px / 1.9；逐块校验，过长时在块与块之间分页 | 完整保留原文，只做排版 | `-f`、「原文长图」 | 白底阅读面 |
 | **原文卡片** | 整篇按顺序分页成固定比例卡片，段落在行间断开、下一张接上；逐块校验 | 把全文发成小红书图文 | 「原文卡片」「全文做成小红书」 | 白底阅读面 |
 | **全文译文** | 外文原文逐段译成中文，结构逐块对应，可以接原文长图、原文卡片和公众号 | 搬运外文文章 | 「翻译」 | — |
@@ -164,6 +175,8 @@ node skills/article2media/scripts/fonts.mjs    # 可选：把主题字体下载�
 /article2media ./essay.md 原文卡片 1:1                        # 原文分页成方图卡片
 /article2media https://x.com/… -w                            # 白板论证
 /article2media https://x.com/… -c                            # 漫画（需要出图能力）
+/article2media https://x.com/… 长图 杂志版                    # 1200 宽双栏（--wide）
+/article2media https://x.com/… 一页看完                       # 轻量形态：一页看完 / 金句图 / 问答卡
 ```
 
 ## 视频当原文
@@ -209,11 +222,12 @@ flowchart LR
   A --> TR["article-translate<br/>→ article.zh.md"]
   A --> RW["article-rewrite<br/>→ content.json"]
   RW --> EX["export.mjs<br/>→ rewrite.md"]
-  RW --> LI["long-image · image-cards<br/>杂志长图 · 总结卡片"]
+  RW --> LI["long-image · image-cards<br/>总结长图 · 总结卡片 · 封面多版本 · 轻量形态"]
   A & TR --> OR["long-image · image-cards<br/>原文长图 · 原文卡片"]
   A & TR & EX --> WX["wechat-layout<br/>公众号排版"]
   A --> V["explainer-video · logic-whiteboard · article-comic<br/>口播视频 · 白板 · 漫画"]
   LI & OR & WX & V --> QA["自动验收<br/>不合格即非零退出"]
+  QA --> PB["发布清单 publish.md<br/>发布数据 publish.json → 报告"]
 ```
 
 - **抓取**：
@@ -223,21 +237,21 @@ flowchart LR
   - 视频：字幕用 yt-dlp 获取，没有字幕时用本地 Whisper 识别。
 - **分工**：Claude 负责理解和写作（改写稿、译文、口播脚本、白板账本、分镜）；脚本负责一切确定性的工作：抓取、排版、截图、配音、对齐、混音和验收。
 - **交接**：每个能力都是独立的 skill，只靠工作目录里的文件交接，共用 `skills/article2media/engine/` 里的脚本、版式和主题。
-- **渲染**：内容、版式 CSS 和主题 CSS 合成 HTML，再通过 DevTools 协议驱动无头 Chrome 截图，输出 2 倍分辨率。
+- **渲染**：内容、版式 CSS 和主题 CSS 合成 HTML，再通过 DevTools 协议驱动无头 Chrome 截图，输出 2 倍分辨率。卡片在页面里自己适配：放不下时按顺序省略次要内容并提示，有余量时放大字号、补要点。
 - **图表**：15 种参数化图表，包括柱状、条形、堆叠、流程、矩阵、合流、树、数据、等式、路径、对比、循环、金句、图片和手写 SVG，颜色全部取自主题。另有可选的 AI 插画。
 
 ### 设计原则
 
 - **内容与风格分离**：主题只是一组 CSS 变量加少量结构覆盖，换主题只需重新渲染。
 - **零 npm 依赖**：只用 Node 22 内置的 WebSocket 和 fetch，直接驱动本机已有的 Chrome。
-- **字体可以本地化**：主题用的是网络字体。网络不稳定（如中国大陆）时先跑一次 `fonts.mjs`，之后所有版式自动改用本地字体，还能同时跑多个出图任务；`--list` 查看，`--clean` 删除。出图过程本身从不下载。
+- **字体可以本地化**：主题用的是网络字体。网络不稳定（如中国大陆）时先跑一次 `fonts.mjs`（约 65 MB，可加 `--mirror <主机>`），之后所有版式自动改用本地字体，还能同时跑多个出图任务；`--list` 查看，`--clean` 删除。出图过程本身从不下载。
 - **出图服务可配置**：按 已登录的 Codex CLI → OpenAI → Gemini 选择，登录、额度或不可用时自动换下一个并提示，内容被拒绝不会换；模型用 `ARTICLE2MEDIA_IMAGE_MODEL_CODEX|OPENAI|GEMINI`、服务用 `ARTICLE2MEDIA_IMAGE_PROVIDER` 或 `~/.config/article2media/config.json` 指定。
 - **能力探测，不强求**：出图（Codex CLI → OpenAI → Gemini）、本地配音（VoxCPM2 → edge-tts → 系统语音）、逐字对齐和视频转写（Whisper）、视频字幕（yt-dlp）都是先探测再选用。
 - **图里不放字**：生成的图片不含文字，所有文字都由 HTML 排版，所以可校验、可修改、不会出现乱码。
 
-## 发布这件事：封面、品牌、批量和数据
+## 发布：封面、品牌、批量和数据
 
-出图只是一半。2.2 起，围绕"发出去并且有效果"加了一组工具：
+出图只是一半。围绕"发出去并且有效果"，有一组工具：
 
 | 做什么 | 怎么用 |
 |---|---|
@@ -249,6 +263,14 @@ flowchart LR
 | **效果闭环** | 发布后说一句数据，`stats.mjs add` 记进 `publish.json`；`stats.mjs report` 按平台对比主题、封面版式、形式的收藏率和互动率，样本不足 5 条的明确标注 |
 
 这些数据只存在你本机的工作目录里。攒够样本后，选主题指南会把它当作两个同样合适的选项之间的裁决依据，不会覆盖你明确说的偏好。
+
+品牌包写在 `brand.json` 里（放在 `~/.config/article2media/` 对所有内容生效，或放在某篇的工作目录里只对那篇生效），字段都可选：
+
+```json
+{ "name": "你的名字", "handle": "@you", "series": "栏目名",
+  "avatar": "avatar.png", "accent": "#FF5A1F", "issue": 12,
+  "tagline": "一行介绍", "follow": "关注 @you，每周一篇" }
+```
 
 ## 主题
 
@@ -278,7 +300,7 @@ flowchart LR
 
 </details>
 
-部分标题字体从 Google Fonts 和 jsDelivr 在线加载。离线时会退回系统字体，版式不变，只是风格感弱一些。新建一个主题只需要写一个 CSS 变量文件，见 [`references/styles.md`](skills/article2media/references/styles.md)。
+主题字体默认从 Google Fonts 和 jsDelivr 在线加载；没加载到的字体，版面检查会按家族点名，这时退回系统字体，版式不变，只是风格感弱一些。跑一次 `node skills/article2media/scripts/fonts.mjs` 把字体装到本地，就不再依赖网络。新建一个主题只需要写一个 CSS 变量文件，见 [`references/styles.md`](skills/article2media/references/styles.md)。
 
 ## 口播视频
 
@@ -298,6 +320,8 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 - **镜头类型**：共 10 种，包括数字滚动、清单、时间线、合流、对比、并列数字、逐字点亮的金句、回顾清单、标题和图片。
 - **停留时间**：每镜最后一个元素出现后至少停留 1.1 秒，不够时自动加长停顿。
 - **开场**：第一帧是封面，静止 0.5 秒，可以配 AI 插画；接着是首句钩子，要求 5 秒内说完。
+- **镜头里的影像**：`illustration` 生成的插画可以放在内容上方或字幕下方；`clip` 把原视频的一段放进镜头（上方、下方或全屏垫底），默认静音。片段要先在本地，脚本不会替你下载。
+- **转场**：默认是上移淡出，也可以全片或单镜改成 `cut`、`fade`、`slide`、`push`。
 
 ### 随包音色
 
@@ -332,7 +356,7 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 
 - **审片**：每次成片都输出 `review.json`，检查首句时长、首个画面出现的时间、最长画面静止、旁白语速、字幕停留与闪断、字幕丢帧（逐帧检查成片里该有字幕的帧）、配音质检和响度（-14 LUFS）。
 - **交付物**：`video.mp4`、两张封面（`cover.png` 和 3:4 的 `cover-3x4.jpg`）、`captions.srt`、带 AI 生成声明的发布文案 `post.md`，以及审片总览图 `contact-sheet.jpg`。
-- **背景音乐**：这一版不带，需要时在平台 App 里添加。
+- **背景音乐**：不自带、不生成。在 `video.json` 里用 `music` 指定你有权使用的本地音频文件，脚本负责循环、淡入淡出，并在旁白说话时压低；旁白响度不受影响。
 
 写法和镜头类型详见 [`video-guide.md`](skills/explainer-video/references/video-guide.md)。
 
@@ -362,23 +386,25 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 
 **漫画**（`-c`）
 - **分镜结构**：最小案例 → 旧做法试一次 → 可观察的缺口 → 一个概念补位 → 同案重跑。
-- **角色一致**：先生成锚点格，其余格以它为参考图并行生成。
+- **角色一致**：先生成锚点格，其余格以它为参考图并行生成（三家出图服务都支持参考图）。
+- **超长时**：长漫画在分格之间分成多张。
 - **详细说明**：见 [`mode-comic.md`](skills/article-comic/references/mode-comic.md)。
 
 **AI 插画**（`--illustrate`，可选）
 - **画风**：按主题画风（`engine/themes/illustration-styles.json`）和主题配色生成封面插画和配图，边缘淡出，和底色融在一起。
-- **服务商**：优先用 Codex CLI（ChatGPT 登录即可，不需要 key），也支持 OpenAI 和 Gemini 的付费 key。
+- **服务商**：优先用已登录的 Codex CLI（ChatGPT 登录即可，不需要 key），也支持 OpenAI 和 Gemini 的付费 key。选中的服务因登录、额度或不可用失败时，自动换下一个并提示；内容被拒绝时直接报告，不换。模型和服务可以用环境变量或 `~/.config/article2media/config.json` 指定，`doctor.mjs` 会显示当前生效的是哪个。
 
 ## 自动验收
 
 | 产出 | 检查项 |
 |---|---|
-| 杂志长图、总结卡片 | 溢出、截断、重叠、单字成行、页面过高、图片或字体加载失败、卡片溢出、图表过小 |
+| 总结长图、总结卡片、封面、轻量形态 | 溢出、截断、重叠、单字成行、页面过高、图片加载失败、字体按家族检查、卡片溢出、图表过小、自动省略了什么；内容校验还会提示节奏偏平（内容卡多却没有整页卡） |
 | 原文长图、原文卡片、公众号排版 | 原文块账本逐块比对（卡片跨卡拼接）、解析覆盖、来源 SHA-256 锁定、实际字体；卡片溢出、张数上限；公众号残留样式、标题长度、封面标题 |
 | 全文翻译 | 块数与结构逐块对应、代码与图片原样、疑似未翻译或漏译、数字是否丢失 |
 | 白板论证 | 论证账本：每段原文都要进入某一步，或写明省略理由 |
 | 漫画 | 对白、旁白和音效字不越出分格 |
-| 口播视频 | 安全区、首句 ≤ 5 秒、首个画面 ≤ 2.5 秒、画面静止 ≤ 5 秒、旁白语速、字幕停留与闪断、成片逐帧字幕丢帧、逐句配音质检、响度 |
+| 口播视频 | 安全区、首句 ≤ 5 秒、首个画面 ≤ 2.5 秒、画面静止 ≤ 5 秒、旁白语速、字幕停留与闪断、成片逐帧字幕丢帧（不通过即失败）、逐句配音质检、响度；片段、配乐、转场的取值和文件 |
+| 发布清单 | 小红书标题 ≤ 20 字符、正文 ≤ 1000 字、图 ≤ 18 张；公众号标题 ≤ 64 字、摘要 ≤ 120 字；备选标题逐个检查 |
 
 每个脚本都以 `✓ / ⚠ / ✗` 逐行报告，最后汇总为 `版面检查：N 个错误，M 个提示`（翻译是 `翻译检查`）。只要有错误，脚本就以非零码退出。
 
@@ -387,13 +413,13 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 ### article2media 是什么？
 
 一组开源的 Claude Code / Codex Skill，也是一个 Claude Code 插件。你给它一篇文章或一条视频，它产出能直接发布的中文视觉内容：
-- 杂志长图；
+- 手机上直接能读的长图；
 - 小红书图文卡片；
 - 公众号排版；
 - 口播短视频；
 - 原文排版、全文翻译、白板论证和漫画。
 
-2.0 起拆成 10 个可以单独使用的能力和一个提供一键组合的总入口。它在 1.5.0 之前叫 article2img。
+2.0 起拆成 10 个可以单独使用的能力和一个提供一键组合的总入口；2.2 起总入口还负责批量处理和发布数据。它在 1.5.0 之前叫 article2img。
 
 ### 只想排版、不想被总结，可以吗？
 
@@ -402,10 +428,10 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 ### 怎么把一篇公众号文章或 X 长文做成小红书图文？
 
 1. 安装后，在 Claude Code 里输入 `/article2media <链接> 小红书`。
-2. 它会抓取原文，改写成 3:4 卡片组：封面、每节一张卡、要点总结。
+2. 它会抓取原文，改写成 3:4 卡片组：封面、每节一张卡（穿插整页金句和大数字）、清单、要点总结。
 3. 同时附一份可直接复制的发帖文案 `caption.md`。
 
-需要其他比例时说 4:5、1:1 或 9:16。
+需要其他比例时说 4:5、1:1 或 9:16。想比较封面，说「多出几个封面」；想要更轻的形态，说「一页看完」「金句图」或「问答形式」。
 
 ### 能把文章自动做成口播视频吗？需要自己配音吗？
 
@@ -414,11 +440,27 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 - **配音后端**：Apple Silicon 上用本地 VoxCPM2 生成 48 kHz 配音；其他机器用免费的 edge-tts 或系统语音。
 - **音色**：随包 6 款，见[随包音色](#随包音色)。
 
+### 怎么知道哪种封面、哪套主题效果更好？
+
+发布后把数据告诉 Claude（比如"小红书那篇 1.2 万阅读、620 收藏"），它会用 `stats.mjs` 记进这篇的 `publish.json`。攒了几篇之后，`stats.mjs report` 按平台对比各主题、各封面版式的收藏率和互动率。
+
+- 样本不足 5 条的组会明确标注"仅供参考"，报告不会让你凭两三篇下结论。
+- 想更快得到对比，同一篇用 `--covers` 出几版封面，分开发布。
+- 数据只存在你本机，不上传任何地方。
+
+### 可以一次处理很多篇吗？
+
+可以。把链接写进一个文本文件，说「批量，每篇出小红书和长图」。`batch.mjs` 先把文章都抓下来、生成一张看板，Claude 再一篇篇改写和出图；抓取失败、正文太短或疑似付费墙的会单独列出来等你确认，不会卡住其他篇。做完后每篇有一份发布清单 `publish.md`。
+
+### 在国内网络下字体加载不出来怎么办？
+
+跑一次 `node skills/article2media/scripts/fonts.mjs`，把主题用到的字体（约 65 MB）下载到本地缓存，网络不好时加 `--mirror <镜像主机>`。之后所有出图都用本地字体，不再联网。没装的时候，版面检查会点名哪个字体没加载。
+
 ### 需要付费 API 或 GPU 吗？
 
 图文产出不需要，只要 Node.js 22 和 Chrome。
 
-- **插画和漫画**：需要出图能力。Codex CLI 用 ChatGPT 账号登录即可，或者使用 OpenAI、Gemini 的付费 key。
+- **插画和漫画**：需要出图能力。Codex CLI 用 ChatGPT 账号登录即可，或者使用 OpenAI、Gemini 的付费 key；一个用不了时会自动换下一个。
 - **本地配音**：最好的效果需要 Apple Silicon。
 
 ### 生成的配音可以商用吗？版权怎么处理？
@@ -504,8 +546,9 @@ rsync -a ~/code/article2media/skills/ ~/.agents/skills/     # Codex
 | 可选：Apple Silicon + mlx-audio + VoxCPM2 | 最自然的本地配音；没有时用 edge-tts 或系统语音 |
 | 可选：mlx-whisper | 逐字对齐，以及没有字幕的视频转写；对齐缺它时用 edge-tts 的词边界或按字数估算 |
 | 可选：yt-dlp | YouTube、B 站的字幕和音频；抖音的兜底 |
+| 可选：本地字体（`fonts.mjs`，约 65 MB） | 出图不依赖网络字体；可以同时跑多个出图任务 |
 
-`bash scripts/install.sh` 会逐项检查，只告诉你缺什么、怎么装，不会自动下载。找不到 Chrome 时，可以安装 Google Chrome、运行 `npx playwright install chromium`，或者设置 `ARTICLE2MEDIA_CHROME=/path/to/chrome`。
+`bash scripts/install.sh` 会逐项检查，只告诉你缺什么、怎么装，不会自动下载（字体下载是你主动运行 `fonts.mjs` 时才发生）。找不到 Chrome 时，可以安装 Google Chrome、运行 `npx playwright install chromium`，或者设置 `ARTICLE2MEDIA_CHROME=/path/to/chrome`。
 
 <details>
 <summary><b>单独使用脚本</b></summary>
@@ -521,9 +564,12 @@ node $K/article-rewrite/scripts/check.mjs <slug>/content.json                   
 node $K/article-rewrite/scripts/export.mjs <slug>/content.json                  # 改写稿 → rewrite.md + 图表图片
 node $K/article-rewrite/scripts/illustrate.mjs <slug>/content.json              # AI 插画
 node $K/article-translate/scripts/translate.mjs check <slug>/article.md <slug>/article.zh.md   # 翻译检查
-node $K/long-image/scripts/long.mjs <slug>/content.json --theme all             # 杂志长图，全部主题
+node $K/long-image/scripts/long.mjs <slug>/content.json --theme all             # 总结长图（手机版），全部主推主题
+node $K/long-image/scripts/long.mjs <slug>/content.json --wide                  # 1200 宽双栏杂志版
 node $K/long-image/scripts/long.mjs <slug>/article.md                           # 原文长图
 node $K/image-cards/scripts/cards.mjs <slug>/content.json --ratio 3:4           # 总结卡片：3:4 / 4:5 / 1:1 / 9:16
+node $K/image-cards/scripts/cards.mjs <slug>/content.json --covers              # 只出封面的几个版本
+node $K/image-cards/scripts/cards.mjs <slug>/content.json --form onepage        # 轻量形态：onepage | quotes | qa
 node $K/image-cards/scripts/cards.mjs <slug>/article.md --ratio 3:4             # 原文卡片
 node $K/wechat-layout/scripts/wechat.mjs <slug>/article.md --theme quiet        # 公众号排版（原文、译文或 rewrite.md）
 node $K/logic-whiteboard/scripts/whiteboard.mjs <slug>/article.md               # 白板：先生成来源清单
@@ -531,15 +577,17 @@ node $K/logic-whiteboard/scripts/whiteboard.mjs <slug>/whiteboard.json          
 node $K/article-comic/scripts/comic.mjs make <slug>/comic.json                  # 漫画
 node $K/explainer-video/scripts/video.mjs make <slug>/video/video.json          # 口播视频（check / voice / render 可分步）
 node $K/long-image/scripts/long.mjs --list                                      # 列出主题
+node $K/article2media/scripts/batch.mjs init links.txt --name 本周 --spec "cards:3:4,long"   # 批量：抓取并建看板
+node $K/article2media/scripts/batch.mjs next 本周                               # 下一条该做什么（status 看全局）
+node $K/article2media/scripts/batch.mjs checklist <slug 目录或批次名>            # 发布清单 publish.md
+node $K/article2media/scripts/stats.mjs add <slug 目录> --platform xhs --views 1.2万 --likes 300 --saves 620
+node $K/article2media/scripts/stats.mjs report                                  # 发布数据报告 → article2media-out/stats-report.md
+node $K/article2media/scripts/fonts.mjs                                         # 把主题字体下载到本地（--list / --clean / --mirror）
 ```
 
-长图和卡片的其他参数：`--out 目录`、`--page 1,3`、`--scale 2`、`--format jpeg --quality 90`、`--max-height 4400`、`--brand brand.json`、`--html-only`。公众号另有 `--title`、`--digest`、`--cover-title`、`--kicker`、`--hero`。
+长图和卡片的其他参数：`--out 目录`、`--page 1,3`、`--scale 2`、`--format jpeg --quality 90`、`--max-height 7600`、`--brand brand.json`、`--issue 13`、`--html-only`。公众号另有 `--title`、`--digest`、`--cover-title`、`--kicker`、`--hero`。
 
-页脚的品牌名、@handle 和栏目名从 `brand.json` 读取：
-
-```json
-{ "name": "Founder Notes", "handle": "@you", "series": "实战手册", "editor": "编者" }
-```
+页脚的品牌名、@handle、栏目名，以及头像、品牌色和期号，都从 `brand.json` 读取，字段见[发布](#发布封面品牌批量和数据)一节。
 
 </details>
 
@@ -550,9 +598,10 @@ node $K/long-image/scripts/long.mjs --list                                      
 skills/
 ├── article2media/               # 总入口：推荐组合 + 共享引擎
 │   ├── SKILL.md
+│   ├── scripts/                 # 入口级工具：batch.mjs（批量、发布清单）、stats.mjs（发布数据）、fonts.mjs（本地字体）
 │   ├── references/              # pipeline.md（交接文件、原文还是改写、怎么调用其他能力）、verbatim.md、styles.md
 │   └── engine/
-│       ├── scripts/             # fetch / render / export / translate / illustrate / video / comic / doctor
+│       ├── scripts/             # fetch / render / export / translate / illustrate / video / comic / doctor / batch / stats / fonts
 │       │   └── lib/             # chrome（CDP 驱动）、各版式与原文账本、校验、出图；media/（视频转逐字稿）；video/（配音、对齐、镜头、渲染、字幕）
 │       ├── layouts/             # 各版式的结构 CSS
 │       ├── themes/              # 主题 CSS（catalog.json 列出 12 套主推和 9 套经典）；illustration-styles.json、caption-styles.json
@@ -567,7 +616,7 @@ skills/
 ├── explainer-video/
 ├── logic-whiteboard/
 └── article-comic/
-tests/                           # run-all.mjs（自测矩阵）、theme-sheet.mjs
+tests/                           # run-all.mjs（自测矩阵）、unit.mjs、visual.mjs + baseline/（视觉回归）、theme-sheet.mjs、showcase.mjs
 docs/                            # README 用图、示例视频与音色试听、介绍文章
 scripts/install.sh               # 依赖检查（只提示，不下载）
 .claude-plugin/                  # plugin.json、marketplace.json
@@ -578,10 +627,13 @@ scripts/install.sh               # 依赖检查（只提示，不下载）
 ## 开发与自测
 
 ```bash
-node tests/run-all.mjs --quick                  # 约 4 分钟：11 个 skill 的结构、CLI 行为、各能力检查、每个示例 × 6 种版式
+node tests/run-all.mjs --quick                  # 11 个 skill 的结构、CLI 行为、各能力检查、每个示例 × 7 种版式
 node tests/run-all.mjs                          # 4 个示例 × 7 种版式 × 12 套主推主题
-node tests/run-all.mjs --themes pop,dopamine    # 只测指定主题
+node tests/run-all.mjs --themes brutal,dopamine # 只测指定主题
+node tests/unit.mjs                             # 离线单元检查（出图配置与自动切换）
+node tests/visual.mjs                           # 视觉回归：和 tests/baseline/ 逐像素对比（需要本地字体）；有意改版后加 --update
 node tests/theme-sheet.mjs                      # 重新生成 docs/themes.jpg
+node tests/showcase.mjs <工作目录>               # 重新生成 docs/showcase.jpg
 claude plugin validate .
 ```
 
@@ -599,26 +651,30 @@ claude plugin validate .
 - [x] 按版权分层的音色库
 - [x] 视频当原文：抖音、YouTube、B 站、本地视频 / 音频、字幕文件 → 逐字稿文章
 - [x] 拆成 10 个独立能力 + 一键组合；原文卡片、原文公众号排版、全文翻译
-- [ ] 视频背景音乐（本地 AI 作曲目前太重，暂缓）
+- [x] 口播视频：镜头插画、原视频片段、转场、用户提供的背景音乐
+- [ ] 更多输入源：小红书、知乎、微博、播客；X 视频链接
+- [ ] 自动生成背景音乐（本地 AI 作曲目前太重，暂缓）
 - [ ] 超长页自动拆图
 - [ ] X 登录态兜底（FxTwitter 不可用时）
 
 ## English
 
-**article2media** (formerly article2img) is a set of open-source Claude Code / Codex skills, also packaged as a Claude Code plugin, that turns one article or video into publish-ready Chinese visual content. Since 2.0 it is ten independent capabilities — fetch, video transcript, rewrite (summary), full translation, long image, cards, WeChat layout, explainer video, whiteboard, comic — that can be used alone or chained, plus an entry skill with one-step combos (article → rewrite → long image, article → WeChat layout, foreign article → translation → WeChat, video → transcript → Xiaohongshu cards, …).
+**article2media** (formerly article2img) is a set of open-source Claude Code / Codex skills, also packaged as a Claude Code plugin, that turns one article or video into publish-ready Chinese visual content. It is ten independent capabilities — fetch, video transcript, rewrite (summary), full translation, long image, cards, WeChat layout, explainer video, whiteboard, comic — that can be used alone or chained, plus an entry skill with one-step combos (article → rewrite → long image, article → WeChat layout, foreign article → translation → WeChat, video → transcript → Xiaohongshu cards, …), batch processing and a publishing feedback loop.
 
 - **Input:** an X/Twitter post or thread, a web page, a WeChat article, a Markdown file, or a video: Douyin, YouTube or Bilibili links, local video and audio files, `.srt` / `.vtt` subtitles. A video is first turned into a verbatim transcript article, from platform subtitles when available and local Whisper otherwise.
 - **Output:**
-  - magazine-style long images;
-  - Xiaohongshu (RedNote) 3:4 carousel cards;
+  - phone-width long images (a 1200 px magazine page with `--wide`);
+  - Xiaohongshu (RedNote) 3:4 carousel cards with six cover layouts and full-card quote / number / image variants;
+  - several cover variants of one piece, and lighter forms: one-page summary, quote cards, Q&A cards;
   - paste-ready WeChat Official Account layouts;
-  - 9:16 narrated short videos with local AI voice-over (VoxCPM2) and word-synced captions (Whisper);
+  - 9:16 narrated short videos with local AI voice-over (VoxCPM2), word-synced captions (Whisper), optional source clips and your own background music;
   - verbatim layouts that never change a word (long image, cards, WeChat), each read back block by block;
   - a full Chinese translation checked block for block against the source;
   - an argument whiteboard and a comic.
+- **Publishing:** a brand kit (avatar, color, issue number), a batch queue for many links, a per-piece publish checklist with title candidates, and local publish stats with a per-platform report.
 - **Themes:** 12 main, 9 legacy.
 - **Verification:** every output is checked automatically, and a failed check exits non-zero.
-- **Requirements:** zero npm dependencies, only Node.js 22 and Chrome.
+- **Requirements:** zero npm dependencies, only Node.js 22 and Chrome. Theme fonts can be mirrored locally with one explicit command; rendering itself never downloads.
 - **Install:** `claude plugin marketplace add threerocks/article2media && claude plugin install article2media@article2media`, or `npx skills add threerocks/article2media -g -a claude-code -a codex -y` (install all skills: they share `article2media/engine`).
 
 ## 致谢
