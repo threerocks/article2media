@@ -3,7 +3,7 @@ name: wechat-layout
 description: 公众号排版：把一篇文章（Markdown）排成能直接粘贴进公众号编辑器的图文——内联样式、图片内嵌、12 套主推主题配色，附 2.35:1 头图、1:1 封面和发布信息（标题、摘要、步骤）；正文一字不改，逐块读回校验。只接受文章：原文（article.md）、译文（article.zh.md）或改写稿导出的文章（rewrite.md，即"总结后发公众号"）。可以单独用，也可以接在抓取、翻译、改写后面。Use when the user wants 公众号排版, 微信公众号文章排版, 推文排版, gzh, mp.weixin formatting, "排成公众号/发公众号", or to paste a Markdown article into the WeChat editor.
 argument-hint: <article.md|rewrite.md|目录> [--theme 主题名] [--title 标题] [--digest 摘要] [--cover-title "两行\n标题"] [--out 目录]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.3.0"
+version: "2.3.1"
 ---
 
 # 公众号排版（wechat-layout）

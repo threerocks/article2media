@@ -3,7 +3,7 @@ name: image-cards
 description: 卡片：固定比例的图文卡片组——小红书 3:4（1080×1440）、Instagram 4:5、方图 1:1、竖屏 9:16，附总览图和发帖文案。两种输入：改写稿 content.json → 总结卡片（封面 + 每节一卡 + 清单 + 要点总结，12 套主推主题）；文章 article.md（原文、译文、逐字稿）→ 原文卡片（整篇按顺序分页成卡片，一字不改，逐块校验）。可以单独用，也可以接在抓取、改写、翻译后面。Use when the user wants 小红书图文, 轮播卡片, 知识卡片, 3:4 / 4:5 / 1:1 / 9:16 cards, Instagram carousel, 朋友圈方图, or 原文卡片 / 全文卡片 / 把全文做成小红书 — from an article or an existing content.json.
 argument-hint: <content.json|article.md|目录> [--ratio 3:4|4:5|1:1|9:16 或 小红书/IG] [--covers] [--form quotes|onepage|qa] [--theme 主题名|a,b|all] [--out 目录]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.3.0"
+version: "2.3.1"
 ---
 
 # 卡片（image-cards）

@@ -3,7 +3,7 @@ name: article-fetch
 description: 文章抓取：把一篇文章转成干净的 Markdown（article.md，带标题、作者、平台、日期、链接的 front matter）。支持 X/Twitter 长文、帖子与线程（FxTwitter，不需要登录）、普通网页、微信公众号文章、本地 Markdown / 文本 / HTML 文件。article2media 的第一步，也可以单独用。Use when the user wants an article, X post or thread, web page or 公众号文章 fetched / saved / converted to Markdown (抓取文章、把这篇存成 markdown、提取正文、导出原文), or when another article2media skill needs the original text from a URL.
 argument-hint: <url|文件> [--out 目录] [--no-proxy] [--title 标题] [--author 作者]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.3.0"
+version: "2.3.1"
 ---
 
 # 文章抓取（article-fetch）

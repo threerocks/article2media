@@ -6,7 +6,7 @@
 
 开源 Claude Code / Codex Skills · 抓取 · 视频转文字 · 改写 · 翻译 · 长图 · 小红书卡片 · 公众号排版 · 竖屏口播视频 · 原文排版 · 白板论证 · 漫画 · 批量与发布数据
 
-[![version](https://img.shields.io/badge/version-2.3.0-1f6feb)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-2.3.1-1f6feb)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-2ea043)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A5%2022-339933)](#依赖)
 [![npm deps](https://img.shields.io/badge/npm%20dependencies-0-2ea043)](#设计原则)
@@ -63,7 +63,8 @@ article2media 把这件事交给 AI。你给一个链接，流程分三步：
 | **手机上直接能读** | 长图默认是 1080 宽的单栏手机版，正文不用放大；需要电脑上看或打印时，`--wide` 出 1200 宽的双栏杂志版。 |
 | **认得出是谁的** | 品牌包把头像、品牌色、期号和一行介绍带到封面、末张和长图页脚，做成系列。 |
 | **发出去之后也管** | 批量处理一批链接、给每篇生成发布清单和备选标题；发布后把数据记下来，按平台对比哪种主题、哪种封面效果更好。 |
-| **每种产出都有验收** | 版面检查溢出、截断和重叠。原文长图、原文卡片、公众号排版都逐块读回比对，改一个字就失败。翻译检查块数、结构、漏译和数字。白板要求每段原文都有去向。视频审片检查首句时长、画面静止、语速、字幕闪断、成片逐帧的字幕丢帧和响度。字体按家族检查，没加载的会点名。不合格就以非零码退出。 |
+| **每种产出都有验收** | 版面检查溢出、截断和重叠。原文长图、原文卡片、公众号排版都逐块读回比对，改一个字就失败。翻译检查块数、结构、漏译和数字。白板要求每段原文都有去向。视频审片检查首句时长、画面静止、语速、字幕闪断、成片逐帧的字幕丢帧和响度。字体按家族检查，没加载的会点名。改写稿还会和原文逐项比对：数字有没有出处、别人的文章有没有写成"我"、原文的具体信息用上了多少。不合格就以非零码退出。 |
+| **换模型也心里有数** | 自带换模型回归测试：同样的提示交给不同模型，用客观分和盲评对比。实测较小的模型（Haiku）规则层面能追平 Opus，读者效果约为 Opus 的 88%，详见[常见问题](#换一个模型来驱动效果稳定吗)。 |
 | **视频质量达到能发布的水准** | 本地 VoxCPM2 生成 48 kHz 配音，Whisper 逐字对齐，数字和要点在说到的那一刻出现。语速按从容讲解控制在约 4.5 字/秒。字幕不闪烁，样式跟随主题。镜头里可以放 AI 插画或原视频片段，可以加你自己的背景音乐。 |
 | **版权与合规写进流程** | 随包 6 款音色全部只凭文字描述设计，不模仿任何真人。克隆音色只留在本机，使用时会提醒。成片首帧和 MP4 元数据都带 AI 生成标识，产出都署原文出处。 |
 | **零依赖，本地优先** | 只需要 Node 22 和一个 Chrome。出图、本地配音、逐字对齐都是可选能力，会自动探测。缺了就降级或明确提示，不会自动下载或安装任何东西。主题字体可以一条命令下载到本地，之后出图不联网。 |
@@ -398,7 +399,7 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 
 | 产出 | 检查项 |
 |---|---|
-| 改写稿（和原文比对） | 原文里找不到的数字、别人的文章写成第一人称、原文配图一张没用、原文的具体数字和人名工具名用上了多少；数据面板和整页卡偏少、大数字和标题对不上 |
+| 改写稿（和原文比对） | 原文里找不到的数字、别人的文章写成第一人称、原文配图一张没用、原文的具体数字和人名工具名用上了多少、中文里夹杂英文普通词；正文太薄、数据面板和整页卡偏少、大数字和标题对不上、同一句话重复、"该避开什么"写成了该做的事、页脚写了制作过程、没写备选标题 |
 | 总结长图、总结卡片、封面、轻量形态 | 溢出、截断、重叠、单字成行、页面过高、图片加载失败、字体按家族检查、卡片溢出、图表过小、自动省略了什么 |
 | 原文长图、原文卡片、公众号排版 | 原文块账本逐块比对（卡片跨卡拼接）、解析覆盖、来源 SHA-256 锁定、实际字体；卡片溢出、张数上限；公众号残留样式、标题长度、封面标题 |
 | 全文翻译 | 块数与结构逐块对应、代码与图片原样、疑似未翻译或漏译、数字是否丢失 |
@@ -559,7 +560,9 @@ rsync -a ~/code/article2media/skills/ ~/.agents/skills/     # Codex
 | 可选：yt-dlp | YouTube、B 站的字幕和音频；抖音的兜底 |
 | 可选：本地字体（`fonts.mjs`，约 65 MB） | 出图不依赖网络字体；可以同时跑多个出图任务 |
 
-`bash scripts/install.sh` 会逐项检查，只告诉你缺什么、怎么装，不会自动下载（字体下载是你主动运行 `fonts.mjs` 时才发生）。找不到 Chrome 时，可以安装 Google Chrome、运行 `npx playwright install chromium`，或者设置 `ARTICLE2MEDIA_CHROME=/path/to/chrome`。
+`bash scripts/install.sh` 会逐项检查，只告诉你缺什么、怎么装，不会自动下载（字体下载是你主动运行 `fonts.mjs` 时才发生）。
+
+在 Codex 里用时，它默认的沙箱不允许启动 Chrome，出图命令会报"Chrome 意外退出"并说明原因：给出图这一步放行（允许启动浏览器、写缓存目录），或在沙箱外运行。找不到 Chrome 时，可以安装 Google Chrome、运行 `npx playwright install chromium`，或者设置 `ARTICLE2MEDIA_CHROME=/path/to/chrome`。
 
 <details>
 <summary><b>单独使用脚本</b></summary>
@@ -627,7 +630,7 @@ skills/
 ├── explainer-video/
 ├── logic-whiteboard/
 └── article-comic/
-tests/                           # run-all.mjs（自测矩阵）、unit.mjs、visual.mjs + baseline/（视觉回归）、theme-sheet.mjs、showcase.mjs
+tests/                           # run-all.mjs（自测矩阵）、unit.mjs、visual.mjs + baseline/（视觉回归）、eval-score.mjs + model-eval.md（换模型回归）、theme-sheet.mjs、showcase.mjs
 docs/                            # README 用图、示例视频与音色试听、介绍文章
 scripts/install.sh               # 依赖检查（只提示，不下载）
 .claude-plugin/                  # plugin.json、marketplace.json
@@ -664,6 +667,8 @@ claude plugin validate .
 - [x] 视频当原文：抖音、YouTube、B 站、本地视频 / 音频、字幕文件 → 逐字稿文章
 - [x] 拆成 10 个独立能力 + 一键组合；原文卡片、原文公众号排版、全文翻译
 - [x] 口播视频：镜头插画、原视频片段、转场、用户提供的背景音乐
+- [x] 改写稿和原文比对、换模型回归测试（客观分 + 盲评）
+- [ ] 让较小的模型在读者效果上接近大模型（目前约 88%），例如小模型写稿、大模型只审一遍
 - [ ] 更多输入源：小红书、知乎、微博、播客；X 视频链接
 - [ ] 自动生成背景音乐（本地 AI 作曲目前太重，暂缓）
 - [ ] 超长页自动拆图
@@ -685,7 +690,8 @@ claude plugin validate .
   - an argument whiteboard and a comic.
 - **Publishing:** a brand kit (avatar, color, issue number), a batch queue for many links, a per-piece publish checklist with title candidates, and local publish stats with a per-platform report.
 - **Themes:** 12 main, 9 legacy.
-- **Verification:** every output is checked automatically, and a failed check exits non-zero.
+- **Verification:** every output is checked automatically, and a failed check exits non-zero. A rewrite is also checked against its article (unsourced numbers, first-person headlines for someone else's article, unused pictures, coverage of the article's numbers and names).
+- **Model regression:** `tests/eval-score.mjs` and `tests/model-eval.md` compare models driving the same task. Haiku matches Opus on the rules and reaches about 88% of it in blind reviews.
 - **Requirements:** zero npm dependencies, only Node.js 22 and Chrome. Theme fonts can be mirrored locally with one explicit command; rendering itself never downloads.
 - **Install:** `claude plugin marketplace add threerocks/article2media && claude plugin install article2media@article2media`, or `npx skills add threerocks/article2media -g -a claude-code -a codex -y` (install all skills: they share `article2media/engine`).
 
