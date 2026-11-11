@@ -27,7 +27,7 @@ export async function renderWechatArticle(input, { opt, THEMES_DIR, readCss, lis
 
   const available = listThemes().map((t) => t.name);
   const themeArg = opt.theme || meta.theme || 'editorial';
-  const themes = themeArg === 'all' ? available : themeArg.split(',').map((s) => s.trim()).filter(Boolean);
+  const themes = themeArg === 'all' ? listThemes().filter((t) => !t.legacy).map((t) => t.name) : themeArg.split(',').map((s) => s.trim()).filter(Boolean);
   for (const t of themes) if (!available.includes(t)) { console.error(`[wechat] 没有主题 "${t}"。可用：${available.join(', ')}`); return 2; }
   if (!opt.theme) console.log(`主题：${themes.join(', ')}${meta.theme ? '（文章 front matter 指定）' : '（默认）'}`);
 

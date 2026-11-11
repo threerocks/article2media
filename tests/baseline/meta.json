@@ -1,0 +1,25 @@
+{
+  "platform": "darwin",
+  "arch": "arm64",
+  "chrome": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "themes": [
+    "editorial",
+    "dopamine",
+    "midnight"
+  ],
+  "files": [
+    "editorial/card-01.png",
+    "editorial/card-03.png",
+    "editorial/card-06.png",
+    "editorial/long-01.png",
+    "dopamine/card-01.png",
+    "dopamine/card-03.png",
+    "dopamine/card-06.png",
+    "dopamine/long-01.png",
+    "midnight/card-01.png",
+    "midnight/card-03.png",
+    "midnight/card-06.png",
+    "midnight/long-01.png"
+  ],
+  "created": "2026-11-11T07:15:22.926Z"
+}

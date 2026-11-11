@@ -51,7 +51,8 @@ const B = {
         `<div class="sc-number">` +
         (s.label ? `<div class="v-label" id="${lab}">${md(s.label)}</div>` : '') +
         (s.start_text ? `<div class="v-from" id="${st}"><span>${md(s.start_text)}</span><i class="v-arrow">↓</i></div>` : '') +
-        `<div class="v-big" id="${num}"><span id="${num}v">${esc(fmt(s.from ?? 0))}</span>` +
+        // The badge is a sibling of the number, not a child: it has its own cue and may land before the count starts.
+        `<div class="v-bigwrap"><div class="v-big" id="${num}"><span id="${num}v">${esc(fmt(s.from ?? 0))}</span></div>` +
         (s.badge ? `<em class="v-badge" id="${badge}">${md(s.badge)}</em>` : '') + `</div>` +
         (s.image ? `<figure class="v-proof" id="${img}"><img src="${esc(s.image.src)}" alt="">${s.image.note ? `<figcaption>${md(s.image.note)}</figcaption>` : ''}</figure>` : '') +
         `</div>`,

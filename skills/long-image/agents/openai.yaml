@@ -1,4 +1,4 @@
 interface:
   display_name: "长图"
-  short_description: "改写稿 → 杂志长图；文章 → 一字不改的原文长图"
+  short_description: "改写稿 → 手机长图（可选宽版）；文章 → 一字不改的原文长图"
   default_prompt: "使用 $long-image 把这篇文章做成长图。"

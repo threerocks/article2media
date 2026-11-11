@@ -36,6 +36,10 @@ function packStages(s, num, k, budget) {
   const stages = s.stages || [];
   const hs = stages.map(stageH);
   const g = s.guard ? guardH(s.guard) : 0;
+  // The estimates run a little high, which used to push a checklist onto one more (half-empty) card.
+  // Pack against a slightly generous budget: render.mjs measures the real cards and re-packs with a
+  // smaller budget if one overflows.
+  budget = Math.round(budget * 1.05);
   const n = stages.length;
   const fill = (from, to, first, last) => headH(s, first) + hs.slice(from, to).reduce((a, b) => a + b, 0) + (last ? g : 0);
 
@@ -72,6 +76,9 @@ const CL = {
     toc: '这组图讲了',
     cont: '续',
     recap: '全文要点',
+    onepage: '一页看完',
+    qa: '问答',
+    quote: '金句',
     cta: '收藏这组图，用的时候翻出来',
     credit: (s) => `原文｜${[s.author, s.handle].filter(Boolean).join(' ')}${s.platform ? ` · ${s.platform}` : ''}`,
   },
@@ -80,14 +87,47 @@ const CL = {
     toc: 'Inside',
     cont: 'cont.',
     recap: 'Key takeaways',
+    onepage: 'On one page',
+    qa: 'Q & A',
+    quote: 'Quote',
     cta: 'Save this for later',
     credit: (s) => `Source: ${[s.author, s.handle].filter(Boolean).join(' ')}${s.platform ? ` · ${s.platform}` : ''}`,
   },
 };
 
 /** Decide which cards to make, in order. Shared by the builder and the validator. */
-export function planCards(content, ratio = '3:4', budgetAdjust = 0) {
+export const FORMS = ['quotes', 'onepage', 'qa'];
+
+/** Sentences for the 金句图 form: content.quotes, or every section's takeaway. */
+export function quoteItems(c) {
+  if (Array.isArray(c.quotes) && c.quotes.length) return c.quotes.map((q) => (typeof q === 'string' ? { text: q } : q)).filter((q) => q?.text);
+  return (c.pages || []).flatMap((p) => (p.sections || []).filter((s) => s.takeaway || s.card?.quote).map((s) => ({ text: s.card?.quote || s.takeaway, from: plain(s.heading).replace(/\n/g, '') })));
+}
+/** Points for the 一页看完 form: content.onepage.points, or each standard section's heading + takeaway. */
+export function onepagePoints(c) {
+  const own = c.onepage?.points;
+  if (Array.isArray(own) && own.length) return own.map((p) => (typeof p === 'string' ? { text: p } : p));
+  return (c.pages || []).flatMap((p) => (p.sections || []).filter((s) => s.kind !== 'checklist' && s.takeaway).map((s) => ({ title: plain(s.heading).replace(/\n/g, ''), text: s.takeaway })));
+}
+// 问答 cards hold as many question-answer pairs as fit: packed by text volume, QA measures the real cards.
+function packQa(pairs, budget, titleLines = 1) {
+  const cost = (p) => 44 + 26 * Math.ceil(vlen(p.q || '') / 20) + 26 * Math.ceil(vlen(p.a || '') / 21) + 40;
+  const out = [];
+  let from = 0, used = 0;
+  pairs.forEach((p, i) => {
+    const h = cost(p), cap = budget - (out.length ? 0 : 60 + 43 * titleLines); // the first card also carries the title
+    if (i > from && used + h > cap) { out.push({ kind: 'qa', from, to: i }); from = i; used = 0; }
+    used += h;
+  });
+  if (pairs.length) out.push({ kind: 'qa', from, to: pairs.length });
+  return out;
+}
+
+export function planCards(content, ratio = '3:4', budgetAdjust = 0, form = '') {
   const budget = ratioSpec(ratio).budget - budgetAdjust;
+  if (form === 'quotes') return quoteItems(content).map((q, i) => ({ kind: 'quote', q, k: i }));
+  if (form === 'onepage') return [{ kind: 'onepage' }];
+  if (form === 'qa') return packQa(content.qa || [], budget, String(content.qaTitle || content.cover?.title || content.title || '').split('\n').length);
   const plan = [{ kind: 'cover' }];
   let num = 0;
   for (const pg of content.pages || []) {
@@ -120,38 +160,102 @@ function figBlock(f, id, capOrder = 2) {
   );
 }
 
-function frame(inner, { idx, total, series, foot, cls = '', acc, kind }) {
+// Brand chip: avatar, name and issue. Shown on the cover and on stand-alone forms so a reader can tell whose card this is.
+const brandChip = (b) =>
+  b?.name || b?.avatar
+    ? `<span class="b-chip">${b.avatar ? `<img class="b-ava" src="${esc(b.avatar)}" alt="">` : ''}${b.name ? `<b>${md(b.name)}</b>` : ''}${b.issueLabel ? `<em>${esc(b.issueLabel)}</em>` : ''}</span>`
+    : '';
+
+function frame(inner, { idx, total, series, foot, cls = '', acc, kind, deco = '', chip = '' }) {
   return (
-    `<section class="card acc ${cls}" data-card="${idx}" data-kind="${kind}" style="--acc:${acc}">` +
-    `<header class="c-top"><span>${md(series)}</span><span>${pad2(idx)} / ${pad2(total)}</span></header>` +
+    `<section class="card acc ${cls}" data-card="${idx}" data-kind="${kind}" style="--acc:${acc}">` + deco +
+    `<header class="c-top">${chip || `<span>${md(series)}</span>`}<span>${total > 1 ? `${pad2(idx)} / ${pad2(total)}` : ''}</span></header>` +
     `<div class="c-body">${inner}</div>` +
     `<footer class="c-foot"><span>${md(foot)}</span></footer>` +
     `</section>`
   );
 }
 
+export const COVER_STYLES = ['hook', 'number', 'versus', 'quote', 'image', 'toc'];
+/** Which cover layout to draw: the requested one when its data is there, otherwise the best fit for what is. */
+export function coverStyle(c) {
+  const cover = c.cover || {};
+  const has = {
+    number: !!cover.number?.value,
+    versus: !!(cover.versus?.left && cover.versus?.right),
+    image: !!coverIllustrationSrc(c),
+  };
+  if (COVER_STYLES.includes(cover.style)) return has[cover.style] === false ? 'hook' : cover.style;
+  return has.image ? 'image' : has.number ? 'number' : has.versus ? 'versus' : 'hook';
+}
+
+// Theme-drawn decoration behind a cover (three empty elements each theme shapes its own way).
+export const COVER_DECO = '<div class="cv-deco" data-deco aria-hidden="true"><i></i><i></i><i></i></div>';
+
+// A big figure with its unit: "413 个文件". The number shrinks until the row fits on one line.
+const numBlock = (n, cls) =>
+  `<div class="${cls}" data-fit-line><b>${md(n.value)}</b>${n.unit ? `<span>${md(n.unit)}</span>` : ''}</div>` +
+  (n.label ? `<div class="${cls}-label" data-qa-text>${md(n.label)}</div>` : '');
+
 function coverCard(c, L, total) {
   const cover = c.cover || {};
   const pages = c.pages || [];
-  let points = cover.points;
-  if (!points) {
-    points = pages.length > 1
-      ? pages.map((p) => String(p.part || '').replace(/^[^·]*·\s*/, ''))
-      : (pages[0]?.sections || []).map((s) => plain(s.heading).replace(/\n/g, '')).slice(0, 6);
+  const style = coverStyle(c);
+  const kicker = `<div class="cv-kicker">${md(cover.kicker || L.kicker(total))}</div>`;
+  const title = `<h1 class="cv-title" data-qa-text>${md(cover.title || c.title)}</h1>`;
+  const subText = cover.subtitle ?? pages[0]?.intro;
+  const sub = subText ? `<p class="cv-sub" data-qa-text${drop(2, '封面副标题')}>${md(subText)}</p>` : '';
+
+  if (style === 'toc') {
+    let points = cover.points;
+    if (!points) {
+      points = pages.length > 1
+        ? pages.map((p) => String(p.part || '').replace(/^[^·]*·\s*/, ''))
+        : (pages[0]?.sections || []).map((s) => plain(s.heading).replace(/\n/g, '')).slice(0, 6);
+    }
+    return kicker + title + `<div class="cv-rule"></div>` + sub +
+      `<div class="cv-toc"${drop(1, '封面目录')}><div class="cv-toc-h">${esc(L.toc)}</div><ol>${points
+        .filter(Boolean)
+        .map((p, i) => `<li><i>${pad2(i + 1)}</i><span data-qa-text>${md(p)}</span></li>`)
+        .join('')}</ol></div>`;
   }
-  // With an AI cover illustration the picture takes the TOC's place.
-  const ill = coverIllustrationSrc(c);
-  return (
-    `<div class="cv-kicker">${md(cover.kicker || L.kicker(total))}</div>` +
-    `<h1 class="cv-title" data-qa-text>${md(cover.title || c.title)}</h1>` +
-    `<div class="cv-rule"></div>` +
-    (ill ? `<div class="cv-ill"><img src="${esc(ill)}" style="aspect-ratio:${coverIllustrationAspect(c)}" alt=""></div>` : '') +
-    ((cover.subtitle ?? pages[0]?.intro) ? `<p class="cv-sub" data-qa-text${drop(2, '封面副标题')}>${md(cover.subtitle ?? pages[0].intro)}</p>` : '') +
-    (ill ? '' : `<div class="cv-toc"${drop(1, '封面目录')}><div class="cv-toc-h">${esc(L.toc)}</div><ol>${points
-      .filter(Boolean)
-      .map((p, i) => `<li><i>${pad2(i + 1)}</i><span data-qa-text>${md(p)}</span></li>`)
-      .join('')}</ol></div>`)
-  );
+  if (style === 'image') {
+    return kicker +
+      `<div class="cv-ill"><img src="${esc(coverIllustrationSrc(c))}" style="aspect-ratio:${coverIllustrationAspect(c)}" alt=""></div>` +
+      title + sub;
+  }
+  if (style === 'number') {
+    return kicker + numBlock(cover.number, 'cv-num') + title + `<div class="cv-rule"></div>` + sub;
+  }
+  if (style === 'versus') {
+    const col = (v, cls) =>
+      `<div class="cv-vs-col ${cls}"><small>${md(v.label || '')}</small><div class="cv-vs-val" data-fit-line><b>${md(v.value || '')}</b></div>${v.note ? `<span data-qa-text>${md(v.note)}</span>` : ''}</div>`;
+    return kicker + title +
+      `<div class="cv-vs">${col(cover.versus.left, 'no')}<i class="cv-vs-mid">VS</i>${col(cover.versus.right, 'yes')}</div>` + sub;
+  }
+  if (style === 'quote') {
+    const by = cover.by ?? [c.source?.author, c.source?.handle].filter(Boolean).join(' ');
+    return kicker + `<div class="cv-qmark" data-deco>“</div>` + title + (by ? `<div class="cv-by">—— ${md(by)}</div>` : '') + `<div class="cv-rule"></div>` + sub;
+  }
+  // hook: the headline fills the card; subtitle and up to four short points sit in an accent band at the bottom.
+  const points = (cover.points || []).filter(Boolean).slice(0, 4);
+  const band = sub || points.length
+    ? `<div class="cv-band">${sub}${points.length ? `<div class="cv-chips"${drop(1, '封面要点')}>${points.map((p) => `<span data-qa-text>${md(p)}</span>`).join('')}</div>` : ''}</div>`
+    : '';
+  return kicker + title + `<div class="cv-rule"></div>` + band;
+}
+
+// A full-card sentence breaks at its own punctuation (unless the author already placed the breaks).
+const quoteLines = (q) => (/\n/.test(q) ? q : String(q).replace(/([，；：、,;:—])(?=[^\s*”’」』）)])/g, '$1\n'));
+
+export const CARD_STYLES = ['quote', 'number', 'image'];
+/** Full-card variant of a section, when its data is there ("quote" needs a sentence, "number" a value, "image" a figure). */
+export function cardStyle(s) {
+  const card = s.card || {};
+  if (!CARD_STYLES.includes(card.style) || card.mode === 'split') return '';
+  if (card.style === 'quote') return card.quote || s.takeaway ? 'quote' : '';
+  if (card.style === 'number') return card.number?.value ? 'number' : '';
+  return (s.figures || []).length && card.figure !== 'none' ? 'image' : '';
 }
 
 function secCard(it, L) {
@@ -167,15 +271,42 @@ function secCard(it, L) {
     return label + heading + (other >= 0 ? figBlock(figs[other], `${it.num}${'AB'[other]}`, 1) : '') + panelBlock(s.panel);
   }
   const text = card.text ?? s.paragraphs?.[0];
+  const take = s.takeaway ? `<p class="c-take" data-qa-text>${md(s.takeaway)}</p>` : '';
+  const style = cardStyle(s);
+
+  // Full-card variants: they break the "label, heading, text, figure, takeaway" rhythm of a long carousel.
+  if (style === 'quote') {
+    return label +
+      `<div class="cq"><div class="cq-mark" data-deco>“</div><p class="cq-text" data-qa-text data-fit-lines>${md(quoteLines(card.quote || s.takeaway))}</p>` +
+      `<div class="cq-from">${md(plain(s.heading).replace(/\n/g, ''))}</div></div>`;
+  }
+  if (style === 'number') {
+    return label + `<h2 class="sec-h cont" data-qa-text>${md(s.heading)}</h2>` +
+      `<div class="cn">${numBlock(card.number, 'cn-num')}</div>` +
+      (text ? `<p class="c-text" data-qa-text${drop(5, '正文')}>${md(text)}</p>` : '') + take;
+  }
+  if (style === 'image') {
+    const f = figs[fi >= 0 ? fi : 0];
+    const src = f.type === 'illustration' ? f._src : f.type === 'image' ? f.src : '';
+    const pic = src
+      ? `<figure class="c-pic"><img src="${esc(src)}" alt="">${f.caption ? `<figcaption class="c-cap" data-qa-text${drop(2, '图注')}>${md(f.caption)}</figcaption>` : ''}</figure>`
+      : figBlock(f, `${it.num}${'AB'[Math.max(fi, 0)]}`);
+    return label + heading + pic + take;
+  }
+
   const bullets = card.bullets || [];
+  // Optional extras ([data-fill]) appear only when the card has room left after its figure is at full size.
+  const fillBullets = !bullets.length && card.fill !== false ? (s.bullets || []).slice(0, 3) : [];
+  const showPanel = card.panel && !it.split && s.panel;
   return (
     label +
     heading +
     (text ? `<p class="c-text" data-qa-text${drop(5, '正文')}>${md(text)}</p>` : '') +
     (fi >= 0 && figs[fi] ? figBlock(figs[fi], `${it.num}${'AB'[fi]}`) : '') +
     (bullets.length ? `<ul class="c-bullets"${drop(1, '要点')}>${bullets.map((b) => `<li data-qa-text>${md(b)}</li>`).join('')}</ul>` : '') +
-    (card.panel && !it.split && s.panel ? `<div${drop(3, '数据面板')}>${panelBlock(s.panel)}</div>` : '') +
-    (s.takeaway ? `<p class="c-take" data-qa-text>${md(s.takeaway)}</p>` : '')
+    (fillBullets.length ? `<ul class="c-bullets" data-fill="1" hidden>${fillBullets.map((b) => `<li data-qa-text>${md(b)}</li>`).join('')}</ul>` : '') +
+    (showPanel ? `<div${drop(3, '数据面板')}>${panelBlock(s.panel)}</div>` : '') +
+    take
   );
 }
 
@@ -212,7 +343,41 @@ function guardCard(it, L) {
   );
 }
 
-function endCard(c, L, footnote) {
+// Stand-alone sentence card (金句图).
+function quoteOnlyCard(it, c) {
+  return `<div class="cq"><div class="cq-mark" data-deco>“</div><p class="cq-text" data-qa-text data-fit-lines>${md(quoteLines(it.q.text))}</p>` +
+    (it.q.from || it.q.by ? `<div class="cq-from">${md(it.q.by || it.q.from)}</div>` : '') + `</div>`;
+}
+
+// 一页看完: the whole piece on one card — headline, one line of context, the points.
+function onepageCard(c, L) {
+  const o = c.onepage || {};
+  const pts = onepagePoints(c).slice(0, 9);
+  // A full list leaves no room for the context line: only an explicit onepage.subtitle is kept then.
+  const sub = o.subtitle ?? (pts.length > 6 ? '' : c.cover?.subtitle ?? c.pages?.[0]?.intro);
+  return (
+    `<div class="cv-kicker">${md(o.kicker || L.onepage)}</div>` +
+    `<h1 class="op-title" data-qa-text>${md(o.title || c.cover?.title || c.title)}</h1>` +
+    (sub ? `<p class="op-sub" data-qa-text${drop(1, '导语')}>${md(sub)}</p>` : '') +
+    `<ol class="op-list" data-shrink>${pts.map((p, i) => `<li><i>${pad2(i + 1)}</i><div>${p.title ? `<b data-qa-text>${md(p.title)}</b>` : ''}<span data-qa-text>${md(p.text || '')}</span></div></li>`).join('')}</ol>`
+  );
+}
+
+// 问答: a chat thread, question bubbles on the right, answers on the left.
+function qaCard(it, c, L, first) {
+  const pairs = (c.qa || []).slice(it.from, it.to);
+  return (
+    (first ? `<div class="cv-kicker">${md(c.qaKicker || L.qa)}</div><h1 class="qa-title" data-qa-text>${md(c.qaTitle || c.cover?.title || c.title)}</h1>` : '') +
+    `<div class="qa-thread">${pairs.map((p) => `<div class="qa-q"><p data-qa-text>${md(p.q)}</p></div><div class="qa-a"><p data-qa-text>${md(p.a)}</p></div>`).join('')}</div>`
+  );
+}
+
+function endBrand(b) {
+  if (!b?.name && !b?.avatar) return '';
+  return `<div class="end-brand"${drop(3, '品牌栏')}>${b.avatar ? `<img class="b-ava" src="${esc(b.avatar)}" alt="">` : ''}<div><b>${md([b.name, b.handle].filter(Boolean).join(' '))}</b>${b.tagline ? `<span>${md(b.tagline)}</span>` : ''}</div></div>`;
+}
+
+function endCard(c, L, footnote, brand) {
   const takeaways = (c.pages || []).flatMap((p) => (p.sections || []).map((s) => s.takeaway).filter(Boolean));
   const lastClosing = c.pages?.[c.pages.length - 1]?.closing;
   const summary = c.cover?.summary || lastClosing || '';
@@ -222,42 +387,67 @@ function endCard(c, L, footnote) {
     `<ol class="end-list${takeaways.length > 9 ? ' dense' : ''}" data-shrink>${takeaways
       .map((t, i) => `<li><i>${pad2(i + 1)}</i><span data-qa-text>${md(t)}</span></li>`)
       .join('')}</ol>` +
-    `<div class="end-src"${drop(1, '来源说明')}>${md(footnote)}</div>` +
-    `<div class="end-cta"${drop(2, '收藏提示')}>${esc(c.cover?.cta || L.cta)}</div>`
+    `<div class="end-src"${drop(1, '来源说明')}>${md(footnote)}</div>` + endBrand(brand) +
+    `<div class="end-cta"${drop(2, '收藏提示')}>${esc(c.cover?.cta || brand?.follow || L.cta)}</div>`
   );
 }
 
 /**
  * Build one HTML document holding every card in a grid (also used as a contact sheet).
- * ctx: { content, brand, themeCss, componentsCss, layoutCss, nAcc, ratio }
+ * ctx: { content, brand, themeCss, componentsCss, layoutCss, nAcc, ratio, form, covers }
+ *   form    '' (the full set) | 'quotes' | 'onepage' | 'qa'  — lighter stand-alone forms from the same content
+ *   covers  array of cover objects: draw only the cover, once per variant (for choosing between them)
  */
+export function coverVariants(c) {
+  const cover = c.cover || {};
+  if (Array.isArray(cover.alts) && cover.alts.length) return [cover, ...cover.alts.map((a) => ({ ...cover, ...a }))].map(({ alts, ...cv }) => cv);
+  const has = { number: !!cover.number?.value, versus: !!(cover.versus?.left && cover.versus?.right), image: !!coverIllustrationSrc(c) };
+  return COVER_STYLES.filter((st) => has[st] !== false).map((style) => ({ ...cover, alts: undefined, style }));
+}
+
 export function buildCards(ctx) {
   const { content: c, brand, themeCss, componentsCss, layoutCss, nAcc } = ctx;
   const R = ratioSpec(ctx.ratio || '3:4');
   const lang = c.lang === 'en' ? 'en' : 'zh';
   const L = { ...LABELS[lang], ...CL[lang] };
-  const plan = planCards(c, R.key, ctx.budgetAdjust || 0);
+  const full = planCards(c, R.key, ctx.budgetAdjust || 0);
+  const plan = ctx.covers ? ctx.covers.map((cover) => ({ kind: 'cover', cover })) : ctx.form ? planCards(c, R.key, ctx.budgetAdjust || 0, ctx.form) : full;
   const total = plan.length;
+  const chip = brandChip(brand);
   const series = c.series || brand.series || '';
   const editor = brand.editor || (lang === 'zh' ? '编者' : 'the editor');
   const footnote = c.footnote || (c.source ? L.footnote(c.source, editor) : '');
   const credit = c.source ? L.credit(c.source) : '';
-  const brandFoot = [brand.name, brand.handle].filter(Boolean).join(' ');
+  const brandLine = [brand.name, brand.handle].filter(Boolean).join(' ');
+  // When the piece is the brand owner's own, the source credit already names them.
+  const brandFoot = credit && ((brand.handle && credit.includes(brand.handle)) || (brand.name && credit.includes(brand.name))) ? '' : brandLine;
 
   const cards = plan.map((it, i) => {
     const idx = i + 1;
     const base = { idx, total, series, foot: credit, kind: it.kind };
     switch (it.kind) {
-      case 'cover':
-        return frame(coverCard(c, L, total), { ...base, cls: 'c-cover', acc: accVar(0, nAcc), foot: [credit, brandFoot].filter(Boolean).join('　') });
-      case 'sec':
-        return frame(secCard(it, L), { ...base, cls: `c-sec${it.part === 2 ? ' c-sec-2' : ''}`, acc: accVar(it.k, nAcc) });
+      case 'cover': {
+        // A cover variant shows the real set's card count in its kicker and has no "01 / 18" of its own.
+        const cc = it.cover ? { ...c, cover: it.cover } : c;
+        const st = coverStyle(cc);
+        return frame(coverCard(cc, L, full.length), { ...base, total: it.cover ? 1 : total, cls: `c-cover ${st === 'toc' ? 'cv-contents' : `cv-${st}`}`, acc: accVar(0, nAcc), foot: [credit, chip ? '' : brandFoot].filter(Boolean).join('　'), deco: st === 'image' ? '' : COVER_DECO, chip });
+      }
+      case 'quote':
+        return frame(`<div class="sec-label">${esc(L.quote)}${total > 1 ? ` · ${pad2(idx)}` : ''}</div>` + quoteOnlyCard(it, c), { ...base, cls: 'c-sec c-quote', acc: accVar(it.k, nAcc), foot: brandLine || credit, chip });
+      case 'onepage':
+        return frame(onepageCard(c, L), { ...base, cls: 'c-onepage', acc: accVar(0, nAcc), foot: [credit, chip ? '' : brandFoot].filter(Boolean).join('　'), deco: COVER_DECO, chip });
+      case 'qa':
+        return frame(qaCard(it, c, L, i === 0), { ...base, cls: 'c-qa', acc: accVar(i, nAcc), foot: [credit, brandFoot].filter(Boolean).join('　'), chip: i === 0 ? chip : '' });
+      case 'sec': {
+        const st = it.part === 2 ? '' : cardStyle(it.s);
+        return frame(secCard(it, L), { ...base, cls: `c-sec${it.part === 2 ? ' c-sec-2' : ''}${st ? ` c-${st}` : ''}`, acc: accVar(it.k, nAcc) });
+      }
       case 'stages':
         return frame(stagesCard(it, L, nAcc), { ...base, cls: 'c-list', acc: accVar(it.k, nAcc) });
       case 'guard':
         return frame(guardCard(it, L), { ...base, cls: 'c-list', acc: accVar(it.k, nAcc) });
       case 'end':
-        return frame(endCard(c, L, footnote), { ...base, cls: 'c-end', acc: accVar(0, nAcc), foot: brandFoot || credit });
+        return frame(endCard(c, L, footnote, brand), { ...base, cls: 'c-end', acc: accVar(0, nAcc), foot: brandLine || credit });
     }
     return '';
   });
@@ -272,43 +462,91 @@ export function buildCards(ctx) {
 ${cards.join('\n')}
 </main>
 <script>
-// Fit each card (also runs when this file is opened directly):
-// 1) scale every figure canvas to the space its card leaves for it;
+// Fit each card (also runs when this file is opened directly; safe to call again):
+// 1) scale every figure to the space its card leaves for it, measured on what is actually drawn
+//    (a short comparison no longer floats in the middle of a tall, empty canvas);
 // 2) if the card still overflows, or its figure would be too small to read, hide optional
-//    elements ([data-drop]) in ascending order and record what was dropped in data-dropped.
+//    elements ([data-drop]) in ascending order and record what was dropped in data-dropped;
+// 3) if the card has room left, use it: larger type (.roomy), then optional extras ([data-fill]);
+// 4) shrink the figure panel to its figure and spread what is left between the blocks.
 window.__fit = function () {
+  var MAXZ = 1.7;
+  // Bounds of what a figure draws, relative to its (untransformed) canvas.
+  function drawn(cv) {
+    cv.style.transform = 'none';
+    var c = cv.getBoundingClientRect(), l = 1e9, t = 1e9, r = -1e9, b = -1e9;
+    cv.querySelectorAll('*').forEach(function (el) {
+      var solid = el.matches('.box, .cmp-col, .hb-row, .hb-axis, img, .ill-missing, .fx-note, .p-card');
+      if (!solid && (el.children.length || el.tagName.toLowerCase() === 'svg')) return;
+      var e = el.getBoundingClientRect();
+      if (e.width < 1 || e.height < 1) return;
+      l = Math.min(l, e.left); t = Math.min(t, e.top); r = Math.max(r, e.right); b = Math.max(b, e.bottom);
+    });
+    if (r < l) return { x: 0, y: 0, w: c.width, h: c.height };
+    var pad = 5;
+    l = Math.max(c.left, l - pad); t = Math.max(c.top, t - pad); r = Math.min(c.right, r + pad); b = Math.min(c.bottom, b + pad);
+    return { x: l - c.left, y: t - c.top, w: r - l, h: b - t };
+  }
   function scale(root) {
     root.querySelectorAll('.c-fig-box').forEach(function (box) {
       var cv = box.querySelector('.fig-canvas');
       if (!cv) return;
-      var bw = box.clientWidth, bh = box.clientHeight, cw = cv.offsetWidth, ch = cv.offsetHeight;
+      var bw = box.clientWidth, bh = box.clientHeight;
       if (!bw || !bh) { box.dataset.scale = '0'; return; }
-      var z = Math.max(0.3, Math.min(1.6, bw / cw, bh / ch));
-      cv.style.transform = 'translate(' + ((bw - cw * z) / 2).toFixed(1) + 'px, ' + ((bh - ch * z) / 2).toFixed(1) + 'px) scale(' + z.toFixed(3) + ')';
+      var d = drawn(cv);
+      var z = Math.max(0.3, Math.min(MAXZ, bw / d.w, bh / d.h));
+      cv.style.transform = 'translate(' + ((bw - d.w * z) / 2 - d.x * z).toFixed(1) + 'px, ' + ((bh - d.h * z) / 2 - d.y * z).toFixed(1) + 'px) scale(' + z.toFixed(3) + ')';
       box.dataset.scale = z.toFixed(2);
+      box.dataset.need = Math.ceil(d.h * z);
+      box.dataset.wide = (z >= Math.min(MAXZ, bw / d.w) - 0.02) ? '1' : '';
     });
   }
-  // Cover titles: as large as possible while keeping the author's line breaks.
-  document.querySelectorAll('.cv-title').forEach(function (t) {
-    t.style.fontSize = '';
-    var want = t.querySelectorAll('br').length + 1;
-    var size = parseFloat(getComputedStyle(t).fontSize);
-    var lh = function () { return parseFloat(getComputedStyle(t).lineHeight) || size * 1.16; };
-    while (size > 36 && t.getBoundingClientRect().height > want * lh() + 2) {
-      size -= 2; t.style.fontSize = size + 'px';
-    }
-  });
+  // One-line rows (big numbers): shrink the number until the row fits its width.
+  function fitLines(root) {
+    root.querySelectorAll('[data-fit-line]').forEach(function (row) {
+      var b = row.querySelector('b');
+      b.style.fontSize = '';
+      var size = parseFloat(getComputedStyle(b).fontSize);
+      while (size > 30 && row.scrollWidth > row.clientWidth + 1) { size -= 3; b.style.fontSize = size + 'px'; }
+    });
+  }
   document.querySelectorAll('.card').forEach(function (card) {
     var body = card.querySelector('.c-body');
+    var over = function () { return body.scrollHeight > body.clientHeight + 1; };
     var drops = Array.prototype.slice.call(card.querySelectorAll('[data-drop]'));
+    var fills = Array.prototype.slice.call(card.querySelectorAll('[data-fill]'));
+    // Reset everything an earlier run changed.
+    card.classList.remove('roomy');
+    body.style.gap = '';
     drops.forEach(function (e) { e.hidden = false; });
+    fills.forEach(function (e) { e.hidden = true; });
+    card.querySelectorAll('.c-fig').forEach(function (f) { var fc = f.querySelector('.c-fig-card'); f.style.flex = ''; fc.style.flex = ''; fc.style.height = ''; });
+    card.querySelectorAll('[data-fit-lines]').forEach(function (e) { e.style.fontSize = ''; });
     drops.sort(function (a, b) { return a.dataset.drop - b.dataset.drop; });
-    scale(card);
-    function bad() {
-      if (body.scrollHeight > body.clientHeight + 1) return true;
-      var box = card.querySelector('.c-fig-box');
-      return !!(box && !box.closest('[hidden]') && Number(box.dataset.scale) < 1);
+    fills.sort(function (a, b) { return a.dataset.fill - b.dataset.fill; });
+    fitLines(card);
+
+    // Cover title: as large as possible while keeping the author's line breaks.
+    var t = card.querySelector('.cv-title');
+    if (t) {
+      t.style.fontSize = '';
+      var want = t.querySelectorAll('br').length + 1;
+      var size = parseFloat(getComputedStyle(t).fontSize);
+      var lh = function () { return parseFloat(getComputedStyle(t).lineHeight) || size * 1.16; };
+      while (size > 36 && t.getBoundingClientRect().height > want * lh() + 2) { size -= 2; t.style.fontSize = size + 'px'; }
     }
+    // Full-card sentences: as large as possible while keeping their line breaks and fitting the card.
+    card.querySelectorAll('[data-fit-lines]').forEach(function (e) {
+      var want = e.querySelectorAll('br').length + 1;
+      var size = parseFloat(getComputedStyle(e).fontSize);
+      var lh = function () { return parseFloat(getComputedStyle(e).lineHeight) || size * 1.3; };
+      while (size > 26 && (e.getBoundingClientRect().height > want * lh() + 2 || over())) { size -= 2; e.style.fontSize = size + 'px'; }
+    });
+
+    scale(card);
+    var box = card.querySelector('.c-fig-box');
+    var shown = function () { return box && !box.closest('[hidden]'); };
+    function bad() { return over() || !!(shown() && Number(box.dataset.scale) < 1); }
     // First try compacting ([data-shrink] → .shrink), then start dropping.
     var shr = card.querySelectorAll('[data-shrink]');
     shr.forEach(function (e) { e.classList.remove('shrink'); });
@@ -320,13 +558,56 @@ window.__fit = function () {
       scale(card);
     }
     card.dataset.dropped = dropped.join('、');
+    // A cover whose headline still does not fit gives up type size last.
+    if (t) { var ts = parseFloat(getComputedStyle(t).fontSize); while (ts > 30 && over()) { ts -= 2; t.style.fontSize = ts + 'px'; } }
+
+    // Room left? A figure at full width with spare height, or a text card with spare height.
+    var spare = function () {
+      if (shown()) return box.dataset.wide ? box.clientHeight - Number(box.dataset.need) : 0;
+      var last = body.lastElementChild, first = body.firstElementChild;
+      if (!last || !first) return 0;
+      var used = 0;
+      Array.prototype.forEach.call(body.children, function (c) { if (!c.hidden) used += c.getBoundingClientRect().height; });
+      return body.clientHeight - used - parseFloat(getComputedStyle(body).paddingTop) - (body.children.length - 1) * parseFloat(getComputedStyle(body).rowGap || 0);
+    };
+    var keeps = function () { scale(card); return !bad() && (!shown() || !!box.dataset.wide); };
+    if (!dropped.length && !card.classList.contains('c-cover') && spare() > 44) {
+      card.classList.add('roomy');
+      if (!keeps()) { card.classList.remove('roomy'); scale(card); }
+    }
+    if (!dropped.length) {
+      for (var j = 0; j < fills.length && spare() > 40; j++) {
+        fills[j].hidden = false;
+        if (!keeps()) { fills[j].hidden = true; scale(card); break; }
+      }
+    }
+    // Figure panel hugs its figure; leftover height goes between the blocks (up to 2.4x the normal gap).
+    if (shown() && box.dataset.wide) {
+      var fig = box.closest('.c-fig'), fc = fig.querySelector('.c-fig-card');
+      var extra = box.clientHeight - Number(box.dataset.need);
+      if (extra > 6) {
+        fc.style.height = (fc.getBoundingClientRect().height - extra) + 'px';
+        fc.style.flex = 'none';
+        fig.style.flex = 'none';
+        scale(card);
+      }
+    }
+    if (!card.classList.contains('c-cover')) {
+      var n = 0;
+      Array.prototype.forEach.call(body.children, function (c) { if (!c.hidden) n++; });
+      var gap = parseFloat(getComputedStyle(body).rowGap || 0), sp = spare();
+      if (shown()) { var u = 0; Array.prototype.forEach.call(body.children, function (c) { if (!c.hidden) u += c.getBoundingClientRect().height; }); sp = body.clientHeight - u - parseFloat(getComputedStyle(body).paddingTop) - (n - 1) * gap; }
+      var inner = Math.max(0, card.querySelectorAll('.c-stage').length - 1); // .c-stages inherits the gap
+      if (n + inner > 1 && sp > 4) body.style.gap = Math.min(gap * 2.4, gap + sp / (n - 1 + inner)).toFixed(1) + 'px';
+      if (over()) body.style.gap = '';
+    }
   });
 };
 window.__fit();
 document.fonts.ready.then(window.__fit);
 </script>
 </body></html>`;
-  return { html, count: total };
+  return { html, count: total, styles: ctx.covers ? plan.map((it) => coverStyle({ ...c, cover: it.cover })) : null };
 }
 
 // 小红书 titles are capped at 20 characters. Count every character as 1 (letters and spaces too)

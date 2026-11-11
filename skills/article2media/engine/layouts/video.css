@@ -58,7 +58,8 @@ html, body { margin: 0; width: 540px; height: 960px; overflow: hidden; backgroun
 .v-label { font-size: 22px; font-weight: 700; color: var(--muted); letter-spacing: .1em; }
 .v-from { margin-top: 18px; font-family: var(--font-head); font-size: 40px; color: var(--muted); line-height: 1.2; }
 .v-from .v-arrow { display: block; font-style: normal; font-size: 30px; color: var(--acc-text); margin-top: 4px; }
-.v-big { position: relative; display: inline-block; margin-top: 4px; font-family: var(--font-head); font-weight: 900; font-size: 112px; line-height: 1.05; color: var(--acc-text); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.v-bigwrap { position: relative; display: inline-block; margin-top: 4px; }
+.v-big { position: relative; display: inline-block; font-family: var(--font-head); font-weight: 900; font-size: 112px; line-height: 1.05; color: var(--acc-text); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .v-badge { position: absolute; right: -54px; top: -26px; font-style: normal; font-size: 20px; font-weight: 800; color: var(--on-acc); background: var(--accent-2, var(--acc)); padding: 6px 12px; border-radius: 12px; rotate: 8deg; white-space: nowrap; font-family: var(--font-head); }
 .v-proof { margin: 18px auto 0; width: 228px; background: var(--card); border-radius: 16px; padding: 10px 10px 8px; box-shadow: 0 18px 40px -18px rgba(0,0,0,.45); rotate: -3deg; }
 .v-proof img { width: 100%; display: block; border-radius: 10px; }
@@ -138,6 +139,26 @@ html, body { margin: 0; width: 540px; height: 960px; overflow: hidden; backgroun
 .v-sub { font-size: 24px; color: var(--muted); margin: 18px 0 0; line-height: 1.5; }
 .v-illo, .v-photo { margin: 22px 0 0; }
 .v-illo img, .v-photo img { width: 100%; display: block; border-radius: var(--radius, 16px); }
+
+/* AI illustration of a scene (video.json "illustration"). top: a picture card above the content, which shrinks when the
+   content is tall. bottom: a full-width band under the captions (y 750–960, the platform-UI zone), faded in from above,
+   so it never competes with the content or the caption line. Pictures carry no text. */
+.v-scene-illo { margin: 0; }
+.v-scene-illo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.v-scene-illo.top { flex: 0 1 250px; min-height: 110px; margin-bottom: 20px; border-radius: var(--radius, 16px); overflow: hidden; box-shadow: var(--card-shadow, 0 14px 34px -20px rgba(0,0,0,.45)); }
+.v-scene-illo.bottom { position: absolute; left: -30px; width: 540px; top: calc(100% + 90px); height: 210px; z-index: -1;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 42%); mask-image: linear-gradient(to bottom, transparent 0, #000 42%); }
+.v-scene-illo.bottom img { object-position: 50% 40%; }
+
+/* Clip from a source video (video.json "clip"): the same top / bottom slots as the illustration, or full — behind the
+   whole scene, edge to edge. A full clip sits under a scrim of the page color, so the theme's text, cards and caption
+   style keep the contrast they were designed with; it is a little stronger behind the caption line. */
+.v-clip.full { position: absolute; left: -30px; top: -132px; width: 540px; height: 960px; z-index: -1; overflow: hidden; }
+.v-scene.has-chip .v-clip.full { top: -172px; }
+.v-clip.full::after { content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) var(--clip-scrim, 66%), transparent) 0 66%,
+    color-mix(in srgb, var(--bg) calc(var(--clip-scrim, 66%) + 14%), transparent) 71% 77%, color-mix(in srgb, var(--bg) var(--clip-scrim, 66%), transparent) 82%); }
+.v-scene.has-clip-full .v-deco { display: none; }
 
 /* cover: first frame, survives a 3:4 crop (content kept inside y 120–840) */
 .v-cover { position: absolute; inset: 0; z-index: 8; display: flex; flex-direction: column; justify-content: center; padding: 140px 44px 150px; background: var(--bg); }

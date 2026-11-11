@@ -4,6 +4,8 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { localizeHtmlFile, readManifest } from './fonts.mjs';
+import { fileURLToPath } from 'node:url';
 
 const HOME = os.homedir();
 export const CACHE_DIR =
@@ -134,7 +136,11 @@ export async function launchBrowser() {
   if (!exe) throw new Error(NO_CHROME_HELP);
   const headlessShell = /headless[-_]shell/.test(exe);
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'a2i-chrome-'));
-  const diskCache = path.join(CACHE_DIR, 'http-cache'); // keeps web-font slices between runs
+  // Remote web fonts: one HTTP cache shared between runs keeps the font slices (two renders at once then share it,
+  // which is why parallel renders were discouraged). With local fonts installed (fonts.mjs) nothing needs caching:
+  // the cache stays inside this process's own profile and parallel renders are independent.
+  const shared = !Object.keys(readManifest().imports).length || process.env.ARTICLE2MEDIA_FONTS === 'remote';
+  const diskCache = shared ? path.join(CACHE_DIR, 'http-cache') : path.join(userDataDir, 'http-cache');
   fs.mkdirSync(diskCache, { recursive: true });
   const args = [
     headlessShell ? '--headless' : '--headless=new',
@@ -204,6 +210,9 @@ async function newPage(cdp) {
       await s('Emulation.setUserAgentOverride', { userAgent, acceptLanguage: 'zh-CN,zh;q=0.9,en;q=0.8' });
     },
     async goto(url, { timeout = 60000 } = {}) {
+      // Every pipeline loads its built page from disk through here: point the page's font @imports at the local
+      // copies (when fonts.mjs installed them) before Chrome reads it. Imports without a local copy stay remote.
+      if (/^file:.*\.html?$/i.test(url)) { try { localizeHtmlFile(fileURLToPath(url)); } catch {} }
       const loaded = cdp.waitForEvent('Page.loadEventFired', sessionId, timeout);
       const r = await s('Page.navigate', { url });
       if (r.errorText) throw new Error(`打开页面失败：${r.errorText}（${url}）`);

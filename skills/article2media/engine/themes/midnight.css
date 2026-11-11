@@ -36,3 +36,18 @@
 }
 .pg-title { letter-spacing: -.01em; }
 .sec-label, .fig-id { text-transform: uppercase; }
+
+/* Cover: a glow and a faint terminal grid behind the headline */
+.cv-deco { right: -120px; top: -120px; width: 420px; height: 420px; }
+.cv-deco i:nth-child(1) { border-radius: 50%; opacity: 1; background: radial-gradient(closest-side, color-mix(in srgb, var(--acc) 38%, transparent), transparent); }
+.cv-deco i:nth-child(2) {
+  inset: 0; border: 0; border-radius: 0; opacity: .5;
+  background-image: linear-gradient(color-mix(in srgb, var(--acc) 30%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--acc) 30%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px; -webkit-mask-image: radial-gradient(closest-side, #000, transparent); mask-image: radial-gradient(closest-side, #000, transparent);
+}
+.cv-deco i:nth-child(3) { display: none; }
+.cv-kicker::before { content: "> "; font-family: var(--font-label); }
+.cv-band .cv-sub { font-weight: 700; }
+.cv-chips span { font-family: var(--font-label), var(--font-body); border-radius: 6px; border-width: 1px; }
+.cv-num b, .cn-num b { text-shadow: 0 0 34px color-mix(in srgb, var(--acc) 55%, transparent); }
+.cv-vs-col.no { background: var(--fig-bg); }

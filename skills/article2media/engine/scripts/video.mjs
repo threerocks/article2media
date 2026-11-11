@@ -24,7 +24,8 @@ import { importVoice, designVoices, probeTerms, listVoices } from './lib/video/v
 import { splitStyle } from './lib/video/text.mjs';
 import { renderVideo, buildStage, TIMING } from './lib/video/render.mjs';
 import { SCENE_TYPES } from './lib/video/scenes.mjs';
-import { plainText, toSpoken, voicedOnly, captionPhrases, capWidth } from './lib/video/text.mjs';
+import { resolveMedia, checkMedia } from './lib/video/media.mjs';
+import { plainText, toSpoken, speechUnits, captionPhrases, capWidth } from './lib/video/text.mjs';
 import { detectImageProviders, pickImageProvider, generateImage } from './lib/imagegen.mjs';
 import { themeStyle, themePalette } from './lib/illustrations.mjs';
 
@@ -68,7 +69,7 @@ function doctor() {
   console.log(`ffmpeg  ${ffmpeg ? '✓' : '✗ 需要安装 ffmpeg'}`);
   if (!v.voxcpm) {
     console.log('\n建议：');
-    if (!v.edge) console.log('  - 装 uv（https://docs.astral.sh/uv/）后可免费用 edge-tts 神经语音：curl -LsSf https://astral.sh/uv/install.sh | sh');
+    if (!v.edge) console.log(`  - 免费的 edge-tts 神经语音（不会自动下载，装一次即可）：${v.edgeInstall}`);
     console.log('  - Apple Silicon 上装本地 VoxCPM2（mlx-audio + 模型约 3 GB）可获得最自然的声音，见 references/video-guide.md');
   }
 }
@@ -92,10 +93,11 @@ function load(f) {
       }
     }
   }
-  return { v, p, dir: path.dirname(p) };
+  // Clips and music are local files too; what is missing is reported by check(), with the other script errors.
+  return { v, p, dir: path.dirname(p), media: resolveMedia(v, path.dirname(p)) };
 }
 
-function check(v) {
+function check(v, media) {
   const errs = [], warns = [];
   if (!Array.isArray(v.scenes) || !v.scenes.length) errs.push('scenes 不能为空');
   const ids = new Set();
@@ -108,7 +110,7 @@ function check(v) {
     if (!SCENE_TYPES.includes(s.type)) errs.push(`${W} 未知类型 ${s.type}（可用：${SCENE_TYPES.join('、')}）`);
     if (!(s.lines || []).length) errs.push(`${W} 缺少 lines（口播）`);
     const text = (s.lines || []).map(plainText).join('');
-    units += voicedOnly(toSpoken(text, v.say || {}).spoken).length;
+    units += speechUnits(toSpoken(text, v.say || {}).spoken);
     // Every cue must be a substring of this scene's narration, or it will fall back to an estimate.
     const cues = [];
     const walk = (o) => { if (!o || typeof o !== 'object') return; for (const [k, val] of Object.entries(o)) { if (/cue$/.test(k) && typeof val === 'string') cues.push(val); else if (typeof val === 'object') walk(val); } };
@@ -117,13 +119,17 @@ function check(v) {
     for (const l of s.lines || []) for (const ph of captionPhrases(l)) if (capWidth(ph.text) > 15) warns.push(`${W} 字幕「${ph.text}」超过一行（13 字），会缩小字号`);
   });
   const first = plainText(v.scenes?.[0]?.lines?.[0] || '');
-  const firstUnits = voicedOnly(toSpoken(first, v.say || {}).spoken).length;
+  const firstUnits = Math.round(speechUnits(toSpoken(first, v.say || {}).spoken));
   // At a calm ~4.5 字/秒, starting at 0.8 s, about 19 characters fit before 5.2 s.
   if (firstUnits > 19) warns.push(`首句 ${firstUnits} 字，超过 19 字：按从容的语速（约 ${PACE.target} 字/秒）黄金 5 秒内说不完，缩短首句，别靠加快语速`);
+  units = Math.round(units);
   if (/大家好|今天给大家|哈喽|欢迎来到/.test(first)) warns.push('首句在寒暄，直接给结果、冲突或问题');
   if (units < 120) warns.push(`口播只有 ${units} 字，偏短`);
   if (units > 420) warns.push(`口播 ${units} 字，超过 90 秒，考虑删减`);
   if (!v.cover?.title) warns.push('没有 cover.title：第一帧会没有标题');
+  const m = checkMedia(v, media);
+  errs.push(...m.errs);
+  warns.push(...m.warns);
   return { errs, warns, units, estSeconds: units / PACE.target + (v.scenes || []).length * 0.5 + TIMING.coverHold + TIMING.coverFade + TIMING.tail };
 }
 
@@ -144,7 +150,7 @@ async function images(v, dir, theme) {
   const want = [];
   const cv = v.cover?.illustration;
   if (typeof cv === 'string' && cv.trim()) want.push({ key: 'cover', prompt: cv, aspect: '3:2', kind: 'cover' });
-  (v.scenes || []).forEach((s) => { if (typeof s.illustration === 'string') want.push({ key: s.id, prompt: s.illustration, aspect: s.illustration_aspect || '3:2', kind: 'figure' }); });
+  (v.scenes || []).forEach((s) => { if (typeof s.illustration === 'string' && s.illustration.trim() && !s.clip) want.push({ key: s.id, prompt: s.illustration, aspect: s.illustration_aspect || '3:2', kind: 'figure' }); });
   if (!want.length) return {};
   const provider = pickImageProvider(opt.provider);
   const out = {};
@@ -182,7 +188,9 @@ function review(v, align, rep, outDir) {
   notes.push({ check: '第一个画面信息', value: firstEvent ? `${firstEvent.t.toFixed(2)}s` : '—', ok: !!firstEvent && firstEvent.t <= 2.5 });
   // Longest stretch with no visual change (element entrances; captions excluded).
   // Characters lighting up as they are spoken (quote karaoke) count as visual change too.
-  const ts = [...new Set([...rep.events.filter((e) => !/cam$/.test(e.id)).map((e) => e.t), ...(rep.karaoke || []).map((k) => k.t)].map((t) => +t.toFixed(2)))].sort((a, b) => a - b);
+  // So does footage: a playing clip changes every frame (a held last frame does not).
+  const clipTs = (rep.clips || []).flatMap((c) => Array.from({ length: Math.floor(c.play / 0.5) + 1 }, (_, k) => c.t + Math.min(c.play, k * 0.5)));
+  const ts = [...new Set([...rep.events.filter((e) => !/cam$/.test(e.id)).map((e) => e.t), ...(rep.karaoke || []).map((k) => k.t), ...clipTs].map((t) => +t.toFixed(2)))].sort((a, b) => a - b);
   let gap = 0, gapAt = 0;
   for (let i = 1; i < ts.length; i++) if (ts[i] - ts[i - 1] > gap) { gap = ts[i] - ts[i - 1]; gapAt = ts[i - 1]; }
   if (rep.total - ts[ts.length - 1] > gap) { gap = rep.total - ts[ts.length - 1]; gapAt = ts[ts.length - 1]; }
@@ -204,13 +212,18 @@ function review(v, align, rep, outDir) {
   const bad = align.checks.filter((c) => c.problems.length);
   notes.push({ check: '配音质检', value: align.asr ? `${align.checks.length} 段，${bad.length} 段有问题` : '没有 ASR，未核对漏读', ok: !bad.length });
   notes.push({ check: '成片响度', value: `${Number(rep.loudness.input_i).toFixed(1)} → -14 LUFS（48 kHz）`, ok: true });
+  // Music / clip sound are added under the mastered narration; the narration's level is the line above, unchanged.
+  for (const n of rep.bed?.notes || []) notes.push({ check: '配乐与原声', value: n.text, ok: n.ok });
+  if (rep.bed?.loudness?.i != null) notes.push({ check: '加配乐后的成片', value: `${rep.bed.loudness.i.toFixed(1)} LUFS，峰值 ${rep.bed.loudness.tp?.toFixed(1)} dBFS（旁白响度不变）`, ok: rep.bed.loudness.tp == null || rep.bed.loudness.tp <= -0.5 });
+  if ((rep.clips || []).some((c) => c.place === 'full')) notes.push({ check: '全屏片段', value: '这些镜头的字幕丢帧不做逐帧检查（画面在动，量不出来），看 contact-sheet 确认字幕清楚', ok: true });
   if (align.voiceScope === 'local') notes.push({ check: '音色权利', value: `本机个人音色「${align.voiceName}」（${align.voiceSource || '来源未登记'}）：只用于本人制作，公开发布前确认已获授权`, ok: false });
   const report = { duration: +rep.total.toFixed(2), voice: `${align.backend} · ${align.voiceName}`, checks: notes, issues: rep.issues };
   fs.writeFileSync(path.join(outDir, 'review.json'), JSON.stringify(report, null, 2));
   return report;
 }
 
-function postCopy(v, content, align, outDir) {
+function postCopy(v, content, align, outDir, rep) {
+  const hasMusic = !!rep?.bed?.music, hasClips = !!rep?.clips?.length;
   const src = content?.source || {};
   const x = content?.xhs || {};
   const tags = (x.tags || []).map((t) => `#${t}`).join(' ');
@@ -231,7 +244,7 @@ ${tags}
 - 在平台上勾选「AI 生成内容」声明（《人工智能生成合成内容标识办法》要求）。视频首帧已标注「AI 配音解读」，MP4 元数据也写了 AIGC 标识。
 - 封面：cover.png（9:16）；小红书用 cover-3x4.jpg。
 - 字幕已烧进画面；captions.srt 可用于平台的字幕功能。
-- 视频没有背景音乐：需要的话在平台 App 里选配乐。
+${hasMusic ? `- 配乐是你提供的 ${path.basename(String(v.music?.src || ''))}：发布前确认这段音乐可以用于公开发布（平台曲库之外的音乐可能被静音或限流）。` : '- 视频没有背景音乐：需要的话在平台 App 里选配乐。'}${hasClips ? '\n- 画面里用了原视频的片段：确认有权使用，并在文案里注明出处。' : ''}
 `;
   fs.writeFileSync(path.join(outDir, 'post.md'), txt);
 }
@@ -243,8 +256,8 @@ if (cmd === 'voice-import') { process.exit(await importVoice(file, opt)); }
 if (cmd === 'voice-design') { process.exit(await designVoices(opt)); }
 if (cmd === 'probe') { process.exit(await probeTerms(positionals.slice(1), opt)); }
 
-const { v, dir } = load(file);
-const c = check(v);
+const { v, dir, media } = load(file);
+const c = check(v, media);
 if (cmd === 'check' || cmd === 'make') {
   for (const e of c.errs) console.log(`✗ ${e}`);
   for (const w of c.warns) console.log(`⚠ ${w}`);
@@ -258,6 +271,12 @@ const { theme, css } = readTheme(v, content);
 const voiceDir = path.join(dir, 'voice');
 
 const MIN_READ = 1.1; // seconds a scene stays after its last element appears
+// render / voice / images skip the check printout, but a broken clip, music or transition must still stop them.
+if (cmd !== 'check' && cmd !== 'make') {
+  const bad = checkMedia(v, media).errs;
+  for (const e of bad) console.log(`✗ ${e}`);
+  if (bad.length) process.exit(1);
+}
 
 async function doVoice() {
   if (opt.fresh) fs.rmSync(path.join(voiceDir, 'alignment.json'), { force: true });
@@ -298,9 +317,13 @@ if (cmd === 'render' || cmd === 'make') {
   const rep = await renderVideo(video, align, {
     dir: outDir, theme, themeCss: css, credit, narration: path.join(voiceDir, 'narration.wav'),
     coverImage: imgs.cover ? pathToFileURL(imgs.cover).href : null,
+    sceneImages: Object.fromEntries(Object.entries(imgs).filter(([k]) => k !== 'cover').map(([k, f]) => [k, pathToFileURL(f).href])),
+    media,
   });
+  // A caption missing from frames of the finished video is a rendering defect, not a judgement call: it fails the run.
+  if (rep.capDrops?.frames.length) rep.issues.push({ level: 'error', where: '字幕', msg: `成片有 ${rep.capDrops.frames.length} 帧该有字幕却是空的（从 ${(rep.capDrops.frames[0] / (rep.fps || 30)).toFixed(2)}s 起），重新渲染；仍然出现请报告` });
   const r = review(video, align, rep, outDir);
-  postCopy(video, content, align, outDir);
+  postCopy(video, content, align, outDir, rep);
   console.log(`\n成片：${rep.mp4}（${rep.total.toFixed(1)}s）`);
   console.log(`封面：${path.join(outDir, 'cover.png')}、cover-3x4.jpg`);
   console.log(`审片：${path.join(outDir, 'contact-sheet.jpg')}`);

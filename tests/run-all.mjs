@@ -114,9 +114,47 @@ const tmpContent = (patch) => {
 {
   const f = tmpContent({ theme: undefined });
   let r = run([f, '--check']);
-  check('不指定比例 → 长图', r.code === 0 && /版式：长图/.test(r.out), r.out);
+  check('不指定比例 → 手机长图（1080 宽）', r.code === 0 && /版式：手机长图/.test(r.out), r.out);
   r = run([f, '--out', path.join(OUT, 'd1'), '--page', '1']);
   check('不指定主题且 content 无 theme → editorial（默认）', r.code === 0 && /主题：editorial（默认）/.test(r.out) && fs.existsSync(path.join(OUT, 'd1', 'page-01.png')), r.out);
+  {
+    // Phone long image is 1080 px wide; --wide is the 1200 px magazine page (2400 px at 2x).
+    const w = (file) => fs.readFileSync(file).readUInt32BE(16);
+    const rw = run([f, '--wide', '--out', path.join(OUT, 'd1w'), '--page', '1']);
+    check('长图默认 1080 宽，--wide 为 2400 宽', rw.code === 0 && w(path.join(OUT, 'd1', 'page-01.png')) === 1080 && w(path.join(OUT, 'd1w', 'page-01.png')) === 2400, rw.out);
+    const rl = run(['--list']);
+    check('--list 先列 12 套主推主题，再列经典主题', rl.code === 0 && (rl.out.split('经典主题')[0].match(/^[\w-]+ /gm) || []).length === 12 && /cloud/.test(rl.out.split('经典主题')[1] || ''), rl.out);
+    const rc = run([f, '--ratio', '3:4', '--theme', 'cloud', '--out', path.join(OUT, 'd1c'), '--page', '1']);
+    check('经典主题仍可按名字渲染', rc.code === 0 && /版面检查：0 个错误/.test(rc.out), rc.out);
+    // Cover variants, lighter forms, brand kit — all cut from the same content.json.
+    const bd = path.join(OUT, 'brandkit');
+    fs.mkdirSync(bd, { recursive: true });
+    const g = JSON.parse(fs.readFileSync(f, 'utf8'));
+    g.qa = [{ q: '图里的文字能太长吗？', a: '不能。方框里不超过十个字，句子留给图注和正文。' }, { q: '两张图怎么选？', a: '一张讲结构或数据，一张讲观点或对比。' }];
+    g.cover = { ...(g.cover || {}), alts: [{ title: '所有图表\n**一次看全**' }] };
+    fs.writeFileSync(path.join(bd, 'content.json'), JSON.stringify(g));
+    fs.writeFileSync(path.join(bd, 'avatar.png'), PNG);
+    fs.writeFileSync(path.join(bd, 'brand.json'), JSON.stringify({ name: '测试号', handle: '@test', avatar: 'avatar.png', tagline: '一行介绍', accent: '#FF5A1F', issue: 12 }));
+    const bc = path.join(bd, 'content.json');
+    let rb = run([bc, '--ratio', '3:4', '--covers', '--out', path.join(bd, 'covers')]);
+    const cv = fs.existsSync(path.join(bd, 'covers')) ? fs.readdirSync(path.join(bd, 'covers')).filter((x) => /^cover-\d+-\w+\.png$/.test(x)) : [];
+    check('--covers：cover.alts 每个备选各出一张封面，文件名带版式', rb.code === 0 && cv.length === 2 && /版面检查：0 个错误/.test(rb.out), rb.out + cv.join(','));
+    delete g.cover.alts; fs.writeFileSync(bc, JSON.stringify(g));
+    rb = run([bc, '--ratio', '3:4', '--covers', '--out', path.join(bd, 'covers2')]);
+    check('--covers：没写备选时按可用版式各出一张（hook / quote / toc）', rb.code === 0 && ['hook', 'quote', 'toc'].every((st) => fs.readdirSync(path.join(bd, 'covers2')).some((x) => x.includes(`-${st}.png`))), rb.out);
+    for (const [form, stem] of [['onepage', 'onepage'], ['quotes', 'quote'], ['qa', 'qa']]) {
+      rb = run([bc, '--ratio', '3:4', '--form', form, '--out', path.join(bd, form)]);
+      check(`--form ${form}：出图、0 错误`, rb.code === 0 && /版面检查：0 个错误/.test(rb.out) && fs.existsSync(path.join(bd, form, `${stem}-01.png`)) && !fs.existsSync(path.join(bd, form, 'caption.md')), rb.out);
+    }
+    rb = run([f, '--ratio', '3:4', '--form', 'qa', '--out', path.join(bd, 'noqa')]);
+    check('--form qa 没有 qa 字段 → 报错', rb.code !== 0 && /qa/.test(rb.out), rb.out);
+    rb = run([bc, '--ratio', '3:4', '--out', path.join(bd, 'cards'), '--html-only']);
+    const bh = fs.existsSync(path.join(bd, 'cards', 'cards.html')) ? fs.readFileSync(path.join(bd, 'cards', 'cards.html'), 'utf8') : '';
+    check('品牌包：头像、期号、品牌色、末张品牌栏进入卡片', /class="b-ava"/.test(bh) && /第 12 期/.test(bh) && /--accent-1: #FF5A1F/.test(bh) && /class="end-brand"/.test(bh) && /一行介绍/.test(bh), rb.out);
+    rb = run([bc, '--out', path.join(bd, 'long'), '--page', '1', '--issue', '13', '--html-only']);
+    const lh = fs.existsSync(path.join(bd, 'long', 'page-01.html')) ? fs.readFileSync(path.join(bd, 'long', 'page-01.html'), 'utf8') : '';
+    check('品牌包：长图页眉带期号（--issue 覆盖 brand.json）、页脚带头像', /第 13 期/.test(lh) && /pg-brand-ava/.test(lh), rb.out);
+  }
 }
 {
   // image figures may point at local files, relative to content.json (e.g. frames cut from a source video).
@@ -217,6 +255,59 @@ console.log('\n== 口播视频');
   fs.writeFileSync(bad, JSON.stringify({ scenes: [{ id: 'a', type: 'nope', lines: ['大家好，今天给大家分享一个特别特别特别长而且完全没有重点的开场白。'] }] }));
   let r = vrun(['check', bad]);
   check('video check：未知镜头类型 → 报错；寒暄开场 → 提示', r.code !== 0 && /未知类型/.test(r.out) && /寒暄/.test(r.out), r.out);
+  // Clips, music, transitions (all optional): validation, timeline and the audio bed — no rendering needed.
+  {
+    const M = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'video', 'media.mjs')).href);
+    const R = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'video', 'render.mjs')).href);
+    const mdir = path.join(dir, 'media', 'video');
+    fs.mkdirSync(mdir, { recursive: true });
+    const ffm = (args) => spawnSync('ffmpeg', ['-v', 'error', '-y', ...args], { encoding: 'utf8' }).status === 0;
+    const haveFf = ffm(['-f', 'lavfi', '-i', 'color=c=gray:s=320x180:r=30:d=2', '-f', 'lavfi', '-i', 'sine=f=330:d=2', '-shortest', '-pix_fmt', 'yuv420p', path.join(mdir, 'src.mp4')])
+      && ffm(['-f', 'lavfi', '-i', 'sine=f=220:d=3', '-ac', '2', path.join(mdir, 'tone.wav')]);
+    const url = 'https://video.twimg.com/amplify_video/1/vid/v.mp4?tag=29';
+    fs.writeFileSync(path.join(dir, 'media', 'meta.json'), JSON.stringify({ url: 'https://x.com/a/status/1', videos: [{ url, duration: 6 }] }));
+    const line = '只用 3 个月，粉丝从 0 涨到 1 万。';
+    const sc = (id, extra) => ({ id, type: 'title', lines: [line], title: '标题', ...extra });
+    const mf = path.join(mdir, 'video.json');
+    fs.writeFileSync(mf, JSON.stringify({ transition: 'wipe', music: { src: 'nope.mp3', volume: 3 }, scenes: [
+      sc('a', { clip: { src: 'missing.mp4', place: 'left' } }), sc('b', { transition: 'zoom', clip: { src: 'src.mp4', start: 3, end: 2 } }), sc('c', { clip: { src: url } })] }));
+    r = vrun(['check', mf]);
+    check('video check：片段 / 配乐 / 转场写错都报错（未知 place、transition，end ≤ start，文件不存在，volume 越界）',
+      r.code !== 0 && /transition 未知值 "wipe"/.test(r.out) && /transition 未知值 "zoom"/.test(r.out) && /clip\.place 未知值 "left"/.test(r.out) && /clip 找不到文件 missing\.mp4/.test(r.out)
+      && /clip\.end（2）必须大于 clip\.start（3）/.test(r.out) && /music 找不到文件 nope\.mp3/.test(r.out) && /music\.volume/.test(r.out), r.out);
+    check('片段写成 meta.json 里的视频地址但没下载 → 报错并给出下载命令，不自动下载',
+      /还没有下载到本地/.test(r.out) && /curl -L --create-dirs -o '[^']*videos\/v\.mp4'/.test(r.out) && !fs.existsSync(path.join(dir, 'media', 'videos')), r.out);
+    if (!haveFf) console.log('（没有 ffmpeg：跳过片段与配乐的检查）');
+    else {
+      fs.mkdirSync(path.join(dir, 'media', 'videos'), { recursive: true });
+      fs.copyFileSync(path.join(mdir, 'src.mp4'), path.join(dir, 'media', 'videos', 'v.mp4'));
+      const good = { music: { src: 'tone.wav' }, scenes: [sc('a', { clip: { src: 'src.mp4', start: 0.5, end: 1.5, place: 'full', audio: true } }), sc('b', { transition: 'push', clip: { src: url, place: 'bottom' } }), sc('c', { transition: 'cut' })] };
+      fs.writeFileSync(mf, JSON.stringify(good));
+      r = vrun(['check', mf]);
+      const media = M.resolveMedia(good, mdir);
+      check('片段 / 配乐 / 转场写对 → 通过；已下载的视频地址解析成本地文件', r.code === 0 && media.clips.b.file === path.join(dir, 'media', 'videos', 'v.mp4') && media.clips.a.hasAudio && media.music.hasAudio, r.out + JSON.stringify(media));
+      // Timeline: transitions and clips must not move scenes or captions.
+      const chars = [...line].map((_, k) => [+(k * 0.15).toFixed(2), +(k * 0.15 + 0.15).toFixed(2)]);
+      const align = { duration: 12, scenes: ['a', 'b', 'c'].map((id, k) => ({ id, start: k * 4, end: k * 4 + 3, lines: [{ text: line, start: k * 4, end: k * 4 + 3, chars: chars.map(([s, e]) => [k * 4 + s, k * 4 + e]) }] })) };
+      const plain = { scenes: good.scenes.map(({ clip, transition, ...s }) => s) };
+      const base = R.buildStage(plain, align, '', {}).data;
+      const w = R.sceneWindows(good, align).windows;
+      const clips = M.prepareClips(good, media, w, { dir: mdir, fps: 30 });
+      const st = R.buildStage(good, align, '', { sceneClips: clips });
+      const ev = (d, p) => d.events.filter((e) => e.p === p).map((e) => [e.id, +e.t.toFixed(3), e.tr || '']);
+      check('不写新字段：时间轴上没有转场标记，也没有片段', !base.events.some((e) => e.tr) && !base.clips && !/class="[^"]*v-clip/.test(R.buildStage(plain, align, '', {}).html));
+      check('转场和片段不改变镜头起点和字幕时间', JSON.stringify(ev(st.data, 'scene-in').map((e) => e.slice(0, 2))) === JSON.stringify(ev(base, 'scene-in').map((e) => e.slice(0, 2))) && JSON.stringify(st.data.captions) === JSON.stringify(base.captions) && st.data.total === base.total);
+      const outs = ev(st.data, 'scene-out');
+      check('push / cut 在切点同时换镜，默认转场提前 0.26 秒退场', outs[0][2] === 'push' && outs[0][1] === +w[0].out.toFixed(3) && outs[1][2] === 'cut' && ev(base, 'scene-out')[0][1] === +(w[0].out - 0.26).toFixed(3), JSON.stringify(outs));
+      check(`片段切成帧（${clips.a.n} 帧 = 1 秒 × 30fps），比镜头短时停在最后一帧；舞台里是图片不是 <video>`,
+        clips.a.n === 30 && clips.a.short > 0 && fs.existsSync(path.join(mdir, clips.a.base, '00029.jpg')) && /class="v-scene-illo v-clip full"/.test(st.html) && /v-clip bottom/.test(st.html) && !/<video/.test(st.html) && st.data.clips.length === 2, JSON.stringify(clips));
+      // Music: looped to the length, ducked under the narration, back up in a long pause.
+      const bed = M.buildBed({ music: { ...media.music, volume: 0.2, duck: true }, speech: [[1, 4]], total: 8 });
+      const rms = (a, b) => { let s = 0, n = 0; for (let k = Math.round(a * 48000) * 2; k < Math.round(b * 48000) * 2; k++) { s += bed.pcm[k] ** 2; n++; } return Math.sqrt(s / n); };
+      const ratio = rms(2, 3.5) / rms(6, 7);
+      check(`配乐循环铺满全片、旁白下压低一半（${ratio.toFixed(2)}）、首尾淡入淡出`, bed.pcm.length === 8 * 48000 * 2 && bed.music.loops >= 3 && Math.abs(ratio - 0.5) < 0.05 && rms(6, 7) > 0.01 && rms(7.95, 8) < rms(6, 7) * 0.2 && rms(0, 0.02) < rms(6, 7) * 0.2, JSON.stringify(bed.music));
+    }
+  }
   const hasSay = process.platform === 'darwin';
   if (!hasSay) console.log('（非 macOS：跳过口播视频渲染）');
   else {
@@ -294,6 +385,17 @@ console.log('\n== 字幕');
   const t = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'video', 'text.mjs')).href);
   const ph = t.captionPhrases('他说自己没特长，文笔也一般，做法归纳起来就三件事。真的吗？');
   check('同一句里的短语合并成一行（≤ 13 字），不跨句', ph.length === 3 && ph[0].text === '他说自己没特长 文笔也一般' && ph.every((p) => t.capWidth(p.text) <= 13) && ph[2].text === '真的吗？', JSON.stringify(ph));
+  const { validate } = await import(pathToFileURL(path.join(SKILL, 'scripts', 'lib', 'validate.mjs')).href);
+  const ex = JSON.parse(fs.readFileSync(path.join(EXDIR, fs.readdirSync(EXDIR).find((f) => f.endsWith('.json'))), 'utf8'));
+  const thErr = (theme) => validate({ ...ex, theme }).errors.filter((e) => /theme/.test(e)).length;
+  check('content.json 的 theme 可以分别指定 long / cards / wechat（和文档一致），其他键报错', thErr({ long: 'editorial', cards: 'bento', wechat: 'quiet' }) === 0 && thErr({ video: 'quiet' }) > 0);
+  // A long phrase is cut by width, never inside an English word or a number.
+  const cut = ['Anthropic 最新的研究把代理的记忆拆成了四层结构来讲清楚', '用 Claude Code 只加载 MEMORY.md 前 200 行就够了真的', '第 1,935 步的时候它回到月见山洞口附近的华蓝市'].flatMap((l) => t.captionPhrases(l).map((p) => ({ l, ...p })));
+  const midWord = cut.filter((p) => /[A-Za-z0-9]/.test(p.l[p.to - 1] || '') && /[A-Za-z0-9]/.test(p.l[p.to] || ''));
+  check('字幕断行不切英文单词和数字（1,935 保持完整）', cut.length >= 6 && !midWord.length && cut.some((p) => p.text.includes('1,935')) && cut.every((p) => t.capWidth(p.text) <= 13), JSON.stringify(cut.map((p) => p.text)));
+  // Pace counts 字: an English word by its syllables (≈ 3 letters each), an acronym by its letters — not every letter.
+  const su = [t.speechUnits('Anthropic'), t.speechUnits('GPT'), t.speechUnits('只用 3 个月')];
+  check(`语速按字计：Anthropic ≈ ${su[0]} 字、GPT = ${su[1]} 字、中文逐字`, su[0] === 3 && su[1] === 3 && su[2] === 5 && t.speechUnits('用 Anthropic 的 harness') < t.voicedOnly('用 Anthropic 的 harness').length / 2, JSON.stringify(su));
   const caps = JSON.parse(fs.readFileSync(path.join(SKILL, 'themes', 'caption-styles.json'), 'utf8'));
   const css = fs.readFileSync(path.join(SKILL, 'layouts', 'video.css'), 'utf8');
   const themes = fs.readdirSync(path.join(SKILL, 'themes')).filter((f) => f.endsWith('.css')).map((f) => f.slice(0, -4));
@@ -346,6 +448,18 @@ console.log('\n== 全文 · 白板 · 漫画');
   fs.writeFileSync(path.join(dir, 'wb-pic.png'), PNG);
   r = run([wbOk, '--layout', 'whiteboard']);
   check('-w 渲染（步骤配图用相对路径）：0 错误', r.code === 0 && fs.existsSync(path.join(dir, 'whiteboard', 'whiteboard.png')), r.out);
+  // Themed whiteboards: a single-accent theme (quiet), a dark one (midnight). The theme's ink must reach the board
+  // (a self-referential --ink blanks the spine and dots) and the three role colors must stay distinct.
+  const wbl = await lib('layout-whiteboard.mjs');
+  const themeCssOf = (t) => fs.readFileSync(path.join(SKILL, 'themes', `${t}.css`), 'utf8');
+  const bridge = wbl.themeBridge(themeCssOf('quiet'));
+  check('-w 主题：墨色继承主题、不自引用；单强调色主题（quiet）的三种角色色不重合', !/--(ink|muted):\s*var\(--\1\)/.test(bridge) && /--ink:inherit/.test(bridge) && !/--blue:var\(--accent-2\)/.test(bridge) && !/--green:var\(--accent-3\)/.test(bridge) && /--blue:var\(--accent-2\)/.test(wbl.themeBridge(themeCssOf('midnight'))), bridge);
+  for (const t of ['quiet', 'midnight']) {
+    r = run([wbOk, '--layout', 'whiteboard', '--theme', t, '--out', path.join(dir, `whiteboard-${t}`)]);
+    check(`-w 渲染（${t} 主题）：0 错误`, r.code === 0 && fs.existsSync(path.join(dir, `whiteboard-${t}`, 'whiteboard.png')), r.out);
+  }
+  r = run([art, '--layout', 'full', '--theme', 'midnight', '--out', path.join(dir, 'full-midnight')]);
+  check('-f 渲染（midnight 主题）：逐字一致、0 错误', r.code === 0 && /逐字一致/.test(r.out) && fs.existsSync(path.join(dir, 'full-midnight', 'full.png')), r.out);
 
   const COMIC = path.join(SKILL, 'scripts', 'comic.mjs');
   const crun = (args) => { const x = spawnSync(process.execPath, [COMIC, ...args], { encoding: 'utf8', timeout: 300000 }); return { code: x.status, out: (x.stdout || '') + (x.stderr || '') }; };
@@ -488,17 +602,135 @@ console.log('\n== 视频输入');
   } else console.log('⚠ 跳过本地语音识别端到端检查：本机没有 mlx-whisper 模型或中文系统语音');
 }
 
-// ---------- 2. Render matrix ----------
-// Every example × (long, 4 card ratios, 公众号总结 = export → rewrite.md → wechat-layout) × theme(s).
+// ---------- 1f. 批量队列、发布清单、发布记录 (offline: no Chrome, no network) ----------
+console.log('\n== 批量 · 发布清单 · 发布记录');
+{
+  const STATS = wrapper('article2media', 'stats');
+  const BATCH = wrapper('article2media', 'batch');
+  const root = path.join(OUT, 'loop', 'out');
+  const src = path.join(OUT, 'loop', 'src');
+  fs.mkdirSync(src, { recursive: true });
+  const para = '把选题、改写、出图、发布拆成固定的步骤，每一步只做一件事，流水线才跑得起来。';
+  // A work directory as the renderers leave it: article, content.json, one card output with its QA file.
+  const fakeDir = (slug, theme, cover = {}) => {
+    const dir = path.join(root, slug);
+    const o = path.join(dir, `${theme}-3x4`);
+    fs.mkdirSync(o, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'article.md'), `---\ntitle: "流水线 ${slug}"\nauthor: "测试"\nurl: "https://example.com/${slug}"\n---\n\n# 流水线 ${slug}\n\n${Array(12).fill(para).join('\n\n')}\n`);
+    fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ title: `流水线 ${slug}`, url: `https://example.com/${slug}` }));
+    fs.writeFileSync(path.join(dir, 'content.json'), JSON.stringify({ title: '内容\n**流水线**', theme, cover: { title: '流水线', ...cover }, xhs: { title: '一个人的内容流水线', caption: '正文。', tags: ['内容创作'] }, pages: [{ sections: [] }] }));
+    for (const n of ['01', '02', '03']) fs.writeFileSync(path.join(o, `card-${n}.png`), PNG);
+    fs.writeFileSync(path.join(o, 'qa.json'), JSON.stringify([{ theme, label: '3 张 3:4 卡片', issues: [] }]));
+    return dir;
+  };
+  const dirs = ['a1', 'a2', 'a3', 'a4', 'a5'].map((s) => fakeDir(s, 'brutal', { number: { value: '7', unit: '步', label: '成片' } }));
+  const others = ['b1', 'b2'].map((s) => fakeDir(s, 'bento'));
+
+  let r = exec(STATS, ['add', dirs[0], '--platform', '小红书', '--url', 'https://xhs.example/1', '--published', '2026-11-01', '--date', '2026-11-02', '--views', '1000', '--likes', '50', '--saves', '100']);
+  let rec = JSON.parse(fs.readFileSync(path.join(dirs[0], 'publish.json'), 'utf8'));
+  let p0 = rec.posts[0];
+  check('发布记录：第一次 add 新建记录，形式、主题、封面版式、张数、标题都从产物里读出来',
+    r.code === 0 && rec.posts.length === 1 && p0.platform === 'xhs' && p0.form === 'cards' && p0.theme === 'brutal' && p0.cover === 'number' && p0.count === 3 && p0.ratio === '3:4'
+    && p0.title === '一个人的内容流水线' && p0.snapshots.length === 1 && p0.snapshots[0].saves === 100, r.out + JSON.stringify(p0));
+  exec(STATS, ['add', dirs[0], '--platform', 'xhs', '--date', '2026-11-05', '--views', '1.2万', '--likes', '300', '--saves', '600', '--comments', '20', '--shares', '40', '--follows', '9']);
+  r = exec(STATS, ['add', dirs[0], '--platform', 'xhs', '--date', '2026-11-05', '--views', '2万']);
+  p0 = JSON.parse(fs.readFileSync(path.join(dirs[0], 'publish.json'), 'utf8')).posts[0];
+  check('发布记录：再 add 追加快照（不新建记录）；同一天覆盖；1.2万 / 2万 能读', r.code === 0 && p0.snapshots.length === 2 && p0.snapshots[1].views === 20000 && p0.snapshots[1].saves === 600 && p0.url === 'https://xhs.example/1', JSON.stringify(p0));
+  r = exec(STATS, ['add', dirs[0], '--platform', 'myspace', '--views', '1']);
+  const r2 = exec(STATS, ['add', dirs[0], '--platform', 'xhs', '--views', '很多']);
+  check('发布记录：未知平台、不是数字的数据 → 拒绝，不写文件', r.code === 2 && r2.code === 2 && /✗/.test(r.out) && /✗/.test(r2.out), r.out + r2.out);
+  r = exec(STATS, ['list', dirs[0]]);
+  check('发布记录：list 列出快照、增量和收藏率', r.code === 0 && /xhs-1/.test(r.out) && /2026-11-05/.test(r.out) && /收藏率 3\.0%/.test(r.out), r.out);
+
+  dirs.slice(1).forEach((d, i) => exec(STATS, ['add', d, '--platform', 'xhs', '--published', '2026-11-01', '--date', '2026-11-08', '--views', String(1000 * (i + 1)), '--likes', '10', '--saves', String(100 * (i + 1))]));
+  others.forEach((d) => exec(STATS, ['add', d, '--platform', 'xhs', '--published', '2026-11-01', '--date', '2026-11-08', '--views', '500', '--likes', '5', '--saves', '5']));
+  exec(STATS, ['add', others[0], '--platform', 'x']); // registered, no numbers yet
+  r = exec(STATS, ['report', root, '--json']);
+  let rep = null;
+  try { rep = JSON.parse(r.out); } catch {}
+  const brutal = rep?.by_platform?.xhs?.theme.find((g) => g.value === 'brutal');
+  const bento = rep?.by_platform?.xhs?.theme.find((g) => g.value === 'bento');
+  check('效果报告：按平台 × 主题 / 封面汇总，取最新快照的中位数和最高值，收藏率 = 收藏 ÷ 阅读；n<5 标样本不足并排在后面；没数据的记录不计入',
+    r.code === 0 && rep.posts === 8 && rep.measured === 7 && brutal?.n === 5 && brutal.small === false && brutal.metrics.views.median === 3000 && brutal.metrics.views.best === 20000
+    && Math.abs(brutal.rates.save_rate.median - 0.1) < 1e-9 && bento?.n === 2 && bento.small === true && rep.by_platform.xhs.theme[0].value === 'brutal'
+    && rep.by_platform.xhs.cover.find((g) => g.value === 'number')?.n === 5 && !rep.by_platform.x, r.out.slice(0, 600));
+  const md = fs.existsSync(path.join(root, 'stats-report.md')) ? fs.readFileSync(path.join(root, 'stats-report.md'), 'utf8') : '';
+  check('效果报告：写出 stats-report.md，样本不足的行有明确标注，够样本的行没有', /\| bento \| 2 \|.*样本不足（n<5），仅供参考/.test(md) && /\| brutal \| 5 \|[^\n]*\|  \|/.test(md), md.slice(0, 800));
+
+  // Publish checklist: platform limits and publish.titles.
+  const setContent = (dir, patch) => { const f = path.join(dir, 'content.json'); fs.writeFileSync(f, JSON.stringify({ ...JSON.parse(fs.readFileSync(f, 'utf8')), ...patch })); };
+  setContent(dirs[1], { publish: { titles: { xhs: ['七步搭好内容流水线', '流水线不是多发，是少想'], x: ['把内容做成流水线的 7 步'] } } });
+  r = exec(BATCH, ['checklist', dirs[1]]);
+  const kit = fs.existsSync(path.join(dirs[1], 'publish.md')) ? fs.readFileSync(path.join(dirs[1], 'publish.md'), 'utf8') : '';
+  check('发布清单：写 publish.md，列出上传顺序、当前标题和备选标题，小红书三项限制都 ✓', r.code === 0 && /发布检查：0 个错误/.test(r.out) && /1\. 一个人的内容流水线（9 \/ 20 字 ✓）〔当前〕/.test(kit) && /2\. 七步搭好内容流水线/.test(kit)
+    && /✓ 标题 9 \/ 20/.test(kit) && /✓ 正文 3 \/ 1000/.test(kit) && /✓ 图片 3 \/ 18/.test(kit) && /card-01\.png/.test(kit) && /stats\.mjs/.test(kit), r.out + kit);
+  setContent(dirs[1], { xhs: { title: '这个小红书标题故意写得很长很长超过二十个字符', caption: '正'.repeat(1001), tags: [] }, publish: { titles: { xhs: ['这个备选标题同样故意写得很长很长超过二十个字符', '短的'], wechat: 'oops' } } });
+  r = exec(BATCH, ['checklist', dirs[1]]);
+  check('发布清单：标题 > 20、正文 > 1000、publish.titles 超长或类型不对 → ✗，退出码非零', r.code === 1 && /✗ 小红书：标题 22 \/ 20/.test(r.out) && /正文 1001 \/ 1000/.test(r.out) && /publish\.titles\.xhs\[0\]/.test(r.out) && /publish\.titles\.wechat 必须是非空字符串数组/.test(r.out), r.out);
+
+  // Batch: local files as links, a video link (recorded, not fetched), a link that cannot be fetched, a stub article.
+  fs.writeFileSync(path.join(src, 'pipeline.md'), `# Content Pipeline Notes\n\n${Array(20).fill(para).join('\n\n')}\n`);
+  fs.writeFileSync(path.join(src, 'stub.md'), '# 预告\n\n完整内容请开通会员后查看。\n');
+  fs.writeFileSync(path.join(src, 'links.txt'), '# 本周\npipeline.md\nstub.md\nhttps://www.bilibili.com/video/BV1NprhBPEtR\n');
+  const bargs = ['--name', 't1', '--root', root, '--no-proxy'];
+  r = exec(BATCH, ['init', path.join(src, 'links.txt'), path.join(src, 'missing.md'), '--spec', 'cards:3:4,long', ...bargs]);
+  const queue = () => JSON.parse(fs.readFileSync(path.join(root, 'batches', 't1', 'queue.json'), 'utf8'));
+  let qd = fs.existsSync(path.join(root, 'batches', 't1', 'queue.json')) ? queue() : { items: [] };
+  const [i1, i2, i3, i4] = qd.items;
+  check('批量 init：本地文件抓成工作目录；视频记为待转写而不是失败；抓不到的记下原因；正文偏短 / 疑似付费墙的等确认；有失败时退出码非零',
+    r.code === 1 && qd.items.length === 4 && i1.state === 'todo' && i1.slug === 'content-pipeline-notes' && fs.existsSync(path.join(root, i1.slug, 'article.md')) && i1.step.stage === '改写'
+    && i2.state === 'confirm' && i2.problems.length === 2 && i3.kind === 'video' && i3.state === 'todo' && /transcribe\.mjs/.test(i3.step.cmd) && i4.state === 'failed' && /抓取失败/.test(i4.problems[0])
+    && fs.existsSync(path.join(root, 'batches', 't1', 'queue.md')) && !fs.readdirSync(root).some((f) => f.startsWith('.fetch-')), r.out);
+  r = exec(BATCH, ['init', path.join(src, 'links.txt'), ...bargs]);
+  check('批量 init：再跑一次不重复抓、不重复排队', r.code === 0 && queue().items.length === 4 && /已抓过，跳过/.test(r.out) && !/→ content-pipeline-notes/.test(r.out), r.out);
+  // The model's work, simulated: a rewrite and both outputs appear on disk; one output carries a QA error.
+  const d1 = path.join(root, i1.slug);
+  fs.copyFileSync(path.join(dirs[0], 'content.json'), path.join(d1, 'content.json'));
+  r = exec(BATCH, ['next', 't1', '--root', root]);
+  check('批量 next：改写稿有了 → 下一步给出能直接运行的卡片命令；等确认的条目单独列出', /#1 /.test(r.out) && /cards\.mjs" ".*content\.json" --ratio 3:4/.test(r.out) && /2 条等用户确认/.test(r.out), r.out);
+  fs.cpSync(path.join(dirs[0], 'brutal-3x4'), path.join(d1, 'brutal-3x4'), { recursive: true });
+  fs.mkdirSync(path.join(d1, 'brutal'));
+  fs.writeFileSync(path.join(d1, 'brutal', 'page-01.png'), PNG);
+  fs.writeFileSync(path.join(d1, 'brutal', 'qa.json'), JSON.stringify([{ theme: 'brutal', issues: [{ level: 'error', where: '图', msg: '文字被截断' }] }]));
+  exec(BATCH, ['status', 't1', '--root', root]);
+  let it = queue().items[0];
+  const stale = it.state === 'todo' && it.stages.rendered['cards:3:4'] === 'done' && it.stages.rendered.long === 'errors' && it.stages.checked === false && /1 个错误/.test(it.step.text);
+  fs.writeFileSync(path.join(d1, 'brutal', 'qa.json'), JSON.stringify([{ theme: 'brutal', issues: [] }]));
+  exec(BATCH, ['skip', 't1', '2', '3', '4', '--reason', '测试', '--root', root]);
+  r = exec(BATCH, ['checklist', 't1', '--root', root]);
+  exec(STATS, ['add', d1, '--platform', 'xhs']);
+  const r3 = exec(BATCH, ['status', 't1', '--root', root]);
+  it = queue().items[0];
+  check('批量 status：状态从磁盘重新计算——有错误的产物不算检查通过，修好后变待发布，写了清单、记了发布后变已发布',
+    stale && r.code === 0 && fs.existsSync(path.join(d1, 'publish.md')) && it.state === 'published' && it.stages.checked && it.stages.kit && it.stages.published && /已发布 1，已跳过 3/.test(r3.out), r.out + r3.out + JSON.stringify(it.stages));
+  // batch.mjs carries a copy of fetch.mjs's slug rule (fetch.mjs is a script, not a module): the two must not drift.
+  const fn = (f) => fs.readFileSync(path.join(SKILL, 'scripts', f), 'utf8').match(/function slugify\(meta\) \{[\s\S]*?\n\}/)?.[0];
+  check('批量：batch.mjs 的目录命名规则和 fetch.mjs 一致', !!fn('fetch.mjs') && fn('fetch.mjs') === fn('batch.mjs'));
+}
+
+// ---------- 1f. Offline unit checks (local fonts, image providers) + visual regression ----------
+console.log('\n== 单元检查与视觉回归');
+{
+  let r = exec(path.join(ROOT, 'tests', 'unit.mjs'), []);
+  check('本地字体与出图服务：离线单元检查', r.code === 0, r.out);
+  r = exec(wrapper('article2media', 'fonts'), ['--list']);
+  check('fonts.mjs --list 列出已安装 / 缺少的字体（不下载）', r.code === 0 && /本地字体：\d+ \/ \d+ 组已安装/.test(r.out), r.out);
+  // Skips by itself (exit 0, ⚠) without local fonts or baselines; fails only on a real difference.
+  r = exec(path.join(ROOT, 'tests', 'visual.mjs'), []);
+  check(`视觉回归${/已跳过/.test(r.out) ? `（${r.out.trim().split('\n').pop().replace(/^⚠ 视觉回归/, '').slice(0, 60)}）` : ''}`, r.code === 0, r.out);
+}
+
+// Every example × (phone long, wide long, 4 card ratios, 公众号总结 = export → rewrite.md → wechat-layout) × theme(s).
 console.log('\n== 渲染矩阵');
-const layouts = [[], ['--ratio', '3:4'], ['--ratio', '4:5'], ['--ratio', '1:1'], ['--ratio', '9:16'], ['wechat']];
+const layouts = [[], ['--wide'], ['--ratio', '3:4'], ['--ratio', '4:5'], ['--ratio', '1:1'], ['--ratio', '9:16'], ['wechat']];
 const themeArg = onlyThemes || (quick ? 'editorial' : 'all');
 const rows = [];
 for (const ex of EXAMPLES) {
   for (const lay of layouts) {
     const isWx = lay[0] === 'wechat';
-    const name = `${path.basename(ex, '.json')} · ${isWx ? 'wechat' : lay.length ? lay[1] : 'long'}`;
-    const sub = isWx ? 'wechat' : lay[1]?.replace(':', 'x') || 'long';
+    const isWide = lay[0] === '--wide';
+    const name = `${path.basename(ex, '.json')} · ${isWx ? 'wechat' : isWide ? 'long-wide' : lay.length ? lay[1] : 'long'}`;
+    const sub = isWx ? 'wechat' : isWide ? 'long-wide' : lay[1]?.replace(':', 'x') || 'long';
     const t0 = Date.now();
     let r;
     if (isWx) {

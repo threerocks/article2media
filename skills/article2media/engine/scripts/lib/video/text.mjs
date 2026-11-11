@@ -101,12 +101,17 @@ export function toSpoken(written, say = {}) {
 export const isVoiced = (ch) => /[㐀-鿿豈-﫿A-Za-z0-9]/.test(ch);
 export const voicedOnly = (s) => [...s].filter(isVoiced).join('');
 
-/** Spoken length in "characters" for pacing (a Latin word ≈ 1.5 chars). */
+/**
+ * Spoken length in 字 for pacing. A CJK character is one; a Latin word counts by its syllables, not its letters
+ * (about one per three letters; a short all-caps acronym is spelled out, one per letter); a digit is one.
+ */
 export function speechUnits(s) {
-  const latin = (s.match(/[A-Za-z]+/g) || []).length;
-  const cjk = (s.match(/[㐀-鿿]/g) || []).length;
-  const digits = (s.match(/\d/g) || []).length;
-  return cjk + latin * 1.5 + digits * 0.8;
+  const str = String(s ?? '');
+  const cjk = (str.match(/[㐀-鿿豈-﫿]/g) || []).length;
+  const digits = (str.match(/\d/g) || []).length;
+  let latin = 0;
+  for (const w of str.match(/[A-Za-z]+/g) || []) latin += w.length <= 5 && w === w.toUpperCase() ? w.length : Math.max(1, w.length / 3);
+  return cjk + latin + digits;
 }
 
 /** Strip **markup** (keywords) and return [{text, key}] spans. */
@@ -142,7 +147,8 @@ export function captionPhrases(line, maxLen = 13) {
     start = end;
   };
   for (let i = 0; i < text.length; i++) {
-    if (/[，。！？；：、,!?;:…]/.test(text[i])) flush(i + 1);
+    // "1,935" and "10:30" are one number, not two phrases.
+    if (/[，。！？；：、,!?;:…]/.test(text[i]) && !(/[,:]/.test(text[i]) && /\d/.test(text[i - 1] || '') && /\d/.test(text[i + 1] || ''))) flush(i + 1);
   }
   flush(text.length);
   const shown = (a, b) => text.slice(a, b).replace(/[，。、；：,;:\s]+$/, '').trim();
@@ -151,8 +157,25 @@ export function captionPhrases(line, maxLen = 13) {
   for (const p of out) {
     const w = capWidth(shown(p.from, p.to));
     if (w <= maxLen) { res.push(p); continue; }
-    const len = p.to - p.from, n = Math.ceil(w / maxLen);
-    for (let k = 0; k < n; k++) res.push({ from: p.from + Math.round((len * k) / n), to: p.from + Math.round((len * (k + 1)) / n) });
+    const n = Math.ceil(w / maxLen);
+    // Even cuts, moved to the nearest boundary that is not inside a Latin word or a number ("Anthropi|c", "1,9|35").
+    const inside = (i) => /[A-Za-z0-9]/.test(text[i - 1] || '') && /[A-Za-z0-9.,%]/.test(text[i] || '') && (/[A-Za-z0-9]/.test(text[i] || '') || /[0-9]/.test(text[i + 1] || ''));
+    const cuts = [p.from];
+    for (let k = 1; k < n; k++) {
+      // Cut by display width, not by character count (Latin letters are about half a cell wide).
+      let c = p.from, acc = 0;
+      while (c < p.to && acc < (w * k) / n) acc += capWidth(text[c++]);
+      if (inside(c)) {
+        let a = c, b = c;
+        while (a > p.from && inside(a)) a--;
+        while (b < p.to && inside(b)) b++;
+        const prev = cuts[cuts.length - 1];
+        c = a > prev && (c - a <= b - c || b >= p.to) ? a : b < p.to ? b : a;
+      }
+      if (c > cuts[cuts.length - 1] && c < p.to) cuts.push(c);
+    }
+    cuts.push(p.to);
+    for (let k = 0; k + 1 < cuts.length; k++) res.push({ from: cuts[k], to: cuts[k + 1] });
   }
   // Merge neighbours within a sentence while the result fits on one line (very short scraps may run 2 cells over).
   const merged = [];
@@ -167,7 +190,7 @@ export function captionPhrases(line, maxLen = 13) {
   return merged.map((p) => {
     const raw = text.slice(p.from, p.to);
     const lead = raw.length - raw.trimStart().length;
-    const body = shown(p.from, p.to).replace(/[，、；：,;:]/g, ' ');
+    const body = shown(p.from, p.to).replace(/[，、；：;]|[,:](?!\d)|(?<!\d)[,:]/g, ' ');
     return { from: p.from + lead, to: p.to, text: body };
   });
 }

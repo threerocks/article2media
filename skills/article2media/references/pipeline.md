@@ -15,6 +15,8 @@ article2media-out/<slug>/
 ├── content.json          改写稿（article-rewrite）：结构化，给长图、卡片
 ├── rewrite.md            改写稿的文章形态（article-rewrite 导出），图表在 rewrite-assets/
 ├── illustrations/        AI 插画缓存
+├── publish.md            发布清单（batch.mjs checklist）：各平台的上传顺序、标题候选、文案、硬性限制检查
+├── publish.json          发布记录（stats.mjs add）：每个平台发了什么、历次数据快照
 └── <主题>/  <主题>-3x4/  full/  full-3x4/  <主题>-wechat/  video/  whiteboard/  comic/   各产物
 ```
 
@@ -65,7 +67,7 @@ article2media-out/<slug>/
 ## 4. 主题与品牌
 
 - **主题**：用户指定了就用指定的；没指定时按 `styles.md`（与本文同目录）的选择指南挑一个，交付时一句话说明理由。改写稿把主题写进 `content.json` 的 `theme`；文章（`rewrite.md`）的 front matter 也可以带 `theme`。原文长图、原文卡片不传主题时用白底阅读面。
-- **品牌**：页脚的品牌名、@handle、栏目名依次读 `content.json` 的 `brand` → `--brand <文件>` → 与输入同目录的 `brand.json` → 当前目录的 `article2media.brand.json` → `~/.config/article2media/brand.json`。格式：`{"name": "Founder Notes", "handle": "@you", "series": "实战手册", "editor": "编者"}`，字段都可选。用户第一次提到想要自己的品牌时，帮他创建最后一个文件。
+- **品牌**：页脚的品牌名、@handle、栏目名依次读 `content.json` 的 `brand` → `--brand <文件>` → 与输入同目录的 `brand.json` → 当前目录的 `article2media.brand.json` → `~/.config/article2media/brand.json`。格式：`{"name": "Founder Notes", "handle": "@you", "series": "实战手册", "editor": "编者"}`，字段都可选。还可以带品牌包字段：`avatar`（头像，路径相对 brand.json）、`tagline`（一行介绍）、`follow`（末张按钮文字）、`accent`（品牌色，替换主题的第一个主色）、`issue`（期号）。头像出现在卡片封面左上角、末张品牌栏和长图页脚，写法见 `../../image-cards/references/xhs-guide.md` 第 2.5 节。用户第一次提到想要自己的品牌时，帮他创建最后一个文件。
 
 ## 5. 通用约定
 
@@ -73,3 +75,18 @@ article2media-out/<slug>/
 - 脚本输出 `✓ / ⚠ / ✗`，最后一行是「版面检查：N 个错误，M 个提示」（翻译是「翻译检查」）。✗ 必须修完；有 ✗ 时退出码非零。
 - 图里不写制作说明、免责声明和检查结果（来源署名除外），这些写在交付回复里。
 - 交付时给出每个产物的绝对路径。
+
+## 6. 批量与发布记录
+
+这两个脚本在 `article2media/scripts/`，不属于任何一个能力，只读写工作目录里的文件：
+
+| 脚本 | 做什么 | 读 | 写 |
+|---|---|---|---|
+| `batch.mjs init / status / next` | 一批链接的抓取、队列和状态 | 每个工作目录里有什么（`article.md`、`content.json`、各产物的 `qa.json`、`publish.json`） | `article2media-out/batches/<批次>/queue.json`、`queue.md` |
+| `batch.mjs checklist <批次 或 工作目录>` | 发布清单 | `content.json`（`xhs`、`wechat`、`publish.titles`）、产物目录 | `<工作目录>/publish.md` |
+| `stats.mjs add / list` | 记一条发布和它的数据 | `content.json`、产物目录（自动识别形式、主题、封面版式、张数、标题） | `<工作目录>/publish.json` |
+| `stats.mjs report` | 跨所有工作目录汇总 | 每个 `publish.json` | `article2media-out/stats-report.md` |
+
+- 队列状态每次都从磁盘重新计算（`status` / `next`），`queue.md` 不要手改；队列里只有"跳过"和"已确认"是人为标记。
+- `publish.json`：`{"version": 1, "posts": [{"id": "xhs-1", "platform": "xhs", "url": "…", "published_at": "2026-11-11", "form": "cards", "theme": "brutal", "cover": "hook", "ratio": "3:4", "count": 18, "title": "…", "output": "brutal-3x4", "snapshots": [{"date": "2026-11-12", "views": 1200, "likes": 80, "saves": 150, "comments": 9, "shares": 12, "follows": 5}]}]}`。数据字段都可选；同一天再记一次会覆盖那天的快照。
+- 用法和什么时候问用户，见 `article2media/SKILL.md` 的「批量」「发布之后」。

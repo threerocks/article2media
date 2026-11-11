@@ -1,7 +1,8 @@
 // Validate content.json. Errors block rendering; warnings are advisory (mostly length limits).
 import { vlen } from './markup.mjs';
 import { FIGURE_TYPES } from './figures.mjs';
-import { planCards, ratioSpec, xhsLen } from './layout-card.mjs';
+import { planCards, ratioSpec, xhsLen, COVER_STYLES, CARD_STYLES } from './layout-card.mjs';
+import { validatePublishTitles } from './workdir.mjs';
 
 const LIMITS = {
   titleLine: 14,
@@ -43,8 +44,8 @@ export function validate(c, { layout = 'long', ratio = '3:4' } = {}) {
   else String(c.title).split('\n').forEach((l, i) => len(`title 第 ${i + 1} 行`, l, LIMITS.titleLine, '标题'));
   if (c.lang && !['zh', 'en'].includes(c.lang)) err('lang', '只能是 zh 或 en');
   const okTheme = (t) => typeof t === 'string' && /^[\w-]+$/.test(t);
-  if (c.theme !== undefined && !(okTheme(c.theme) || (c.theme && typeof c.theme === 'object' && Object.entries(c.theme).every(([k, v]) => ['long', 'cards'].includes(k) && okTheme(v))))) {
-    err('theme', 'theme 必须是主题名（如 "editorial"），或 {"long": "…", "cards": "…"}');
+  if (c.theme !== undefined && !(okTheme(c.theme) || (c.theme && typeof c.theme === 'object' && Object.entries(c.theme).every(([k, v]) => ['long', 'cards', 'wechat'].includes(k) && okTheme(v))))) {
+    err('theme', 'theme 必须是主题名（如 "editorial"），或 {"long": "…", "cards": "…", "wechat": "…"}');
   }
   if (!c.source) warn('source', '缺少原文信息，页脚将没有来源行');
   if (!arr('pages', c.pages, 1, 'pages ')) return { errors, warnings, info };
@@ -163,6 +164,18 @@ export function validate(c, { layout = 'long', ratio = '3:4' } = {}) {
     }
     const cover = c.cover || {};
     String(cover.title || c.title || '').split('\n').forEach((l, i) => len(`cover.title 第 ${i + 1} 行`, l, 10, '封面标题'));
+    // Cover layout and the data it needs.
+    if (cover.style !== undefined && !COVER_STYLES.includes(cover.style)) err('cover.style', `封面版式只能是 ${COVER_STYLES.join(' / ')}`);
+    if (cover.style === 'number' && !cover.number?.value) err('cover.number', 'style 为 number 时需要 cover.number: {"value": "413", "unit": "个文件", "label": "一句解释"}');
+    if (cover.style === 'versus' && !(cover.versus?.left?.value && cover.versus?.right?.value)) err('cover.versus', 'style 为 versus 时需要 cover.versus: {"left": {"label", "value", "note"}, "right": {…}}');
+    if (cover.style === 'image' && !cover.illustration) err('cover.illustration', 'style 为 image 时需要封面插画 cover.illustration');
+    len('cover.number.value', cover.number?.value, 5, '封面大数字');
+    len('cover.number.label', cover.number?.label, 24, '封面数字说明');
+    for (const side of ['left', 'right']) {
+      len(`cover.versus.${side}.value`, cover.versus?.[side]?.value, 4, '对比数值');
+      len(`cover.versus.${side}.note`, cover.versus?.[side]?.note, 20, '对比说明');
+    }
+    (cover.points || []).slice(0, 4).forEach((t, i) => len(`cover.points[${i}]`, t, 12, '封面要点（hook 版式显示前 4 条）'));
     len('cover.subtitle', cover.subtitle, 60, '封面副标题');
     (cover.points || []).forEach((t, i) => len(`cover.points[${i}]`, t, 16, '封面要点'));
     if (!c.xhs) warn('xhs', '没有小红书文案（xhs.title / caption / tags），caption.md 会用自动摘要');
@@ -179,10 +192,54 @@ export function validate(c, { layout = 'long', ratio = '3:4' } = {}) {
         return;
       }
       if (cd.mode && !['single', 'split', 'skip'].includes(cd.mode)) err(`${S}.mode`, 'mode 只能是 single / split / skip');
+      if (cd.style !== undefined) {
+        if (!CARD_STYLES.includes(cd.style)) err(`${S}.style`, `整页卡型只能是 ${CARD_STYLES.join(' / ')}`);
+        else if (cd.mode === 'split') warn(`${S}.style`, 'split 的节不支持整页卡型，style 会被忽略');
+        else if (cd.style === 'quote' && !(cd.quote || s.takeaway)) err(`${S}.style`, 'quote 卡需要 card.quote 或这一节的 takeaway');
+        else if (cd.style === 'number' && !cd.number?.value) err(`${S}.number`, 'number 卡需要 card.number: {"value": "413", "unit": "个文件", "label": "一句解释"}');
+        else if (cd.style === 'image' && !(s.figures || []).length) err(`${S}.style`, 'image 卡需要这一节有图（figures）');
+        len(`${S}.quote`, cd.style === 'quote' ? cd.quote || s.takeaway : '', 26, '整页金句');
+        len(`${S}.number.value`, cd.number?.value, 5, '整页大数字');
+        len(`${S}.number.label`, cd.number?.label, 24, '数字说明');
+      }
       if (cd.figure !== undefined && cd.figure !== 'none' && !(Number.isInteger(cd.figure) && (s.figures || [])[cd.figure])) err(`${S}.figure`, 'figure 必须是已有图的下标（0 或 1）或 "none"');
       len(`${S}.text`, cd.text ?? s.paragraphs?.[0], 90, '卡片正文');
       (cd.bullets || []).forEach((t, i) => len(`${S}.bullets[${i}]`, t, 26, '卡片要点'));
     }));
+  }
+
+  // publish.titles: per-platform title candidates for the publish checklist (same rule as batch.mjs checklist)
+  if (c.publish !== undefined) {
+    const r = validatePublishTitles(c);
+    errors.push(...(r.errors || []));
+    warnings.push(...(r.warnings || []));
+  }
+
+  // Optional fields for cover variants and the lighter forms
+  if (c.cover?.alts !== undefined) {
+    if (!Array.isArray(c.cover.alts) || c.cover.alts.some((a) => !a || typeof a !== 'object')) err('cover.alts', '封面备选要写成数组，每项是要替换的封面字段，例如 [{"title": "…", "style": "number"}]');
+    else c.cover.alts.forEach((a, i) => {
+      if (a.style !== undefined && !COVER_STYLES.includes(a.style)) err(`cover.alts[${i}].style`, `封面版式只能是 ${COVER_STYLES.join(' / ')}`);
+      String(a.title || '').split('\n').forEach((l, j) => len(`cover.alts[${i}].title 第 ${j + 1} 行`, l, 10, '封面标题'));
+    });
+    if ((c.cover.alts || []).length > 4) warn('cover.alts', '封面备选建议不超过 4 个：挑差别大的写');
+  }
+  if (c.qa !== undefined) {
+    if (!Array.isArray(c.qa) || c.qa.some((p) => !isStr(p?.q) || !isStr(p?.a))) err('qa', '问答要写成 [{"q": "问题", "a": "回答"}, …]，问题和回答都不能为空');
+    else c.qa.forEach((p, i) => { len(`qa[${i}].q`, p.q, 24, '问题'); len(`qa[${i}].a`, p.a, 70, '回答'); });
+  }
+  if (c.quotes !== undefined) {
+    if (!Array.isArray(c.quotes)) err('quotes', '金句要写成数组：["一句话", {"text": "一句话", "by": "谁说的"}]');
+    else c.quotes.forEach((q, i) => len(`quotes[${i}]`, typeof q === 'string' ? q : q?.text, 26, '金句'));
+  }
+  (c.onepage?.points || []).forEach((p, i) => len(`onepage.points[${i}]`, typeof p === 'string' ? p : p?.text, 30, '一页看完的要点'));
+
+  // A long carousel of identical cards reads flat: suggest a full-card quote or number now and then.
+  if (layout === 'card') {
+    const secs = c.pages.flatMap((pg) => pg.sections || []).filter((s) => s.kind !== 'checklist' && s.card?.mode !== 'skip');
+    if (secs.length >= 6 && !secs.some((s) => s.card?.style)) {
+      warn('cards', `${secs.length} 张内容卡都是同一种版式，节奏偏平：每 3–4 张安排一张整页卡（"card": {"style": "quote"} 金句，或 "number" 大数字、"image" 整页图）`);
+    }
   }
 
   // ---- 公众号 ----

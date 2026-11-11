@@ -121,13 +121,27 @@
 
 ```jsonc
 {
-  "cover": { "title": "…", "kicker": "…", "subtitle": "…", "points": ["…"], "summary": "…", "cta": "…" },
+  "cover": { "style": "hook|number|versus|quote|image|toc", "title": "…", "kicker": "…", "subtitle": "…", "points": ["…"],
+             "number": { "value": "413", "unit": "个文件", "label": "…" },             // style: number
+             "versus": { "left": { "label": "…", "value": "…", "note": "…" }, "right": { "…": "…" } },   // style: versus
+             "by": "…", "summary": "…", "cta": "…" },
   "xhs": { "title": "≤ 20 字", "caption": "≤ 1000 字", "tags": ["…"] },
   "pages": [{ "sections": [{
     "…": "…",
-    "card": { "mode": "single|split|skip", "text": "…", "bullets": ["…"], "figure": 0, "panel": false }
+    "card": { "mode": "single|split|skip", "text": "…", "bullets": ["…"], "figure": 0, "panel": false,
+              "style": "quote|number|image", "quote": "…", "number": { "value": "…", "unit": "…", "label": "…" } }   // 整页卡型，给一组图做节奏
   }] }]
 }
+```
+
+封面备选、轻量形态和期号（都可选，写法见 xhs-guide 第 2.5 节）：
+
+```jsonc
+"issue": 12,                                             // 期号，页眉和封面显示"第 12 期"
+"cover": { "…": "…", "alts": [{ "title": "…" }, { "style": "number", "number": { "…": "…" } }] },   // --covers 时逐个出图
+"quotes": ["一句话", { "text": "一句话", "by": "谁说的" }],   // --form quotes；缺省用每节的 takeaway
+"onepage": { "title": "…", "subtitle": "…", "points": [{ "title": "…", "text": "…" }] },             // --form onepage；缺省自动取
+"qa": [{ "q": "问题 ≤ 24 字", "a": "回答 ≤ 70 字" }]       // --form qa，必须写
 ```
 
 ## 公众号专用字段（可选）
@@ -142,6 +156,22 @@
   "kicker": "…"                // 可选：头图上方小字，缺省用 series
 }
 ```
+
+## 发布用的备选标题（可选）
+
+`publish.titles`：每个平台 3 个**角度不同**的备选标题（给结果、给数字、点反常识…），供发布清单 `publish.md` 列出来让用户挑；不影响任何渲染。`xhs.title` / `wechat.title` 仍是默认用的那个，备选里不用重复它。要出卡片或公众号、并且用户会自己发布时写。
+
+```jsonc
+"publish": {
+  "titles": {
+    "xhs":    ["≤ 20 个字符", "…", "…"],     // 和 xhs.title 同一个上限（字母、空格也算）
+    "wechat": ["≤ 64 字", "…", "…"],
+    "x":      ["一句话帖子文案", "…", "…"]     // 也可以写 douyin、channels、weibo
+  }
+}
+```
+
+每个平台 1–5 个、不能重复、不能换行；写法同各平台标题的要求（不夸大，不写"保姆级""全网最全"）。
 
 ## AI 插画（可选）
 

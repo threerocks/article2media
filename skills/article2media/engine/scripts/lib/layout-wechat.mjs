@@ -11,6 +11,7 @@ import { esc, md, pad2, plain } from './markup.mjs';
 import { renderFigure } from './figures.mjs';
 import { LABELS, accVar } from './layout-long.mjs';
 import { coverIllustrationSrc, coverIllustrationAspect } from './illustrations.mjs';
+import { COVER_DECO } from './layout-card.mjs';
 
 export const WX_LABELS = {
   zh: {
@@ -180,7 +181,7 @@ export function buildWechatCovers(ctx) {
   const squareTitle = c.cover?.title || c.title;
   const ill = coverIllustrationSrc(c);
   const box = (id, w, h, title, cls, withIll) =>
-    `<div class="card c-cover wx-cover ${cls}${withIll ? ' has-ill' : ''}" id="${id}" style="--card-w:${w}px;--card-h:${h}px;--acc:${accVar(0, nAcc)}">` +
+    `<div class="card c-cover wx-cover ${cls}${withIll ? ' has-ill' : ''}" id="${id}" style="--card-w:${w}px;--card-h:${h}px;--acc:${accVar(0, nAcc)}">` + (withIll ? '' : COVER_DECO) +
     `<div class="c-body">${kicker ? `<div class="cv-kicker">${md(kicker)}</div>` : ''}<h1 class="cv-title">${md(title)}</h1><div class="cv-rule"></div></div>` +
     (withIll ? `<div class="wx-cover-ill"><img src="${esc(ill)}" style="aspect-ratio:${coverIllustrationAspect(c)}" alt=""></div>` : '') +
     `</div>`;
@@ -190,7 +191,8 @@ export function buildWechatCovers(ctx) {
 <style>${cardCss}</style>
 <style>
 .wx-covers { display: flex; gap: 24px; padding: 24px; align-items: flex-start; }
-.wx-cover .c-body { justify-content: center; padding-top: 0 !important; gap: 0; }
+.wx-cover .c-body { justify-content: center; padding-top: 0 !important; gap: 0; position: relative; z-index: 1; }
+.wx-cover.wide:not(.has-ill) .c-body { max-width: 59%; }
 .wx-cover.wide { padding: 34px 56px; }
 .wx-cover.square { padding: 30px 30px; }
 .wx-cover .cv-rule { margin: 18px 0 0 !important; }

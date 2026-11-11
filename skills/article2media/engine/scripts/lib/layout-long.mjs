@@ -1,4 +1,5 @@
-// "long" layout: one tall magazine-style page per content page (1200 CSS px wide).
+// "long" layout: one tall page per content page — phone width by default (540 CSS px, one column),
+// or the wide magazine page (1200 CSS px, text beside figures) with ctx.wide.
 import { esc, md, pad2 } from './markup.mjs';
 import { renderFigure } from './figures.mjs';
 import { coverIllustrationSrc, coverIllustrationAspect } from './illustrations.mjs';
@@ -25,6 +26,33 @@ export const LABELS = {
         .join(', ')}. Labels, tables and checklists by ${editor}; illustrations are schematic.`,
   },
 };
+
+// Phone-width pages stack their figures, so a fixed canvas height would leave short figures (a comparison,
+// three bars) floating in an empty panel. Shrink each canvas to what it actually draws. Figures laid out
+// on an absolute stage (converge / tree / path) and SVG charts fill their canvas and are left alone.
+const HUG_SCRIPT = `<script>
+window.__hug = function () {
+  document.querySelectorAll('.fig-canvas').forEach(function (cv) {
+    cv.style.height = '';
+    if (cv.querySelector('.cv, .tr, .pa, .fig-svg, .ill, .im')) return;
+    var c = cv.getBoundingClientRect(), t = 1e9, b = -1e9;
+    cv.querySelectorAll('*').forEach(function (el) {
+      if (el.closest('.fx-note')) return; // the note sits at the canvas bottom; it is added back below
+      var solid = el.matches('.box, .cmp-col, .hb-row, .hb-axis, .ill-missing');
+      if (!solid && el.children.length) return;
+      var e = el.getBoundingClientRect();
+      if (e.width < 1 || e.height < 1) return;
+      t = Math.min(t, e.top); b = Math.max(b, e.bottom);
+    });
+    if (b < t) return;
+    var note = cv.querySelector('.fx-note');
+    var ratio = (b - t + (note ? note.getBoundingClientRect().height : 0)) / c.height;
+    if (ratio < 0.86) cv.style.height = Math.ceil(cv.clientHeight * ratio + 14) + 'px';
+  });
+};
+window.__hug();
+document.fonts.ready.then(window.__hug);
+</script>`;
 
 export const accVar = (k, nAcc) => `var(--accent-${(k % nAcc) + 1})`;
 
@@ -108,7 +136,7 @@ function checklistSection(s, num, k, nAcc, L) {
 
 /**
  * Build the full HTML document for page `pi` (0-based).
- * ctx: { content, brand, themeCss, layoutCss, nAcc }
+ * ctx: { content, brand, themeCss, layoutCss, nAcc, wide }
  */
 export function buildPage(pi, ctx) {
   const { content, brand, themeCss, layoutCss, nAcc } = ctx;
@@ -141,8 +169,8 @@ export function buildPage(pi, ctx) {
 <style>${layoutCss}</style>
 <style>${themeCss}</style>
 </head><body>
-<main class="page" data-page="${pi + 1}">
-<header class="pg-top"><span>${md(series)}</span><span>${esc(L.page(pi + 1, total))}</span></header>
+<main class="page${ctx.wide ? '' : ' m'}" data-page="${pi + 1}">
+<header class="pg-top"><span>${md([series, brand.issueLabel].filter(Boolean).join(' · '))}</span><span>${esc(L.page(pi + 1, total))}</span></header>
 ${hero ? '<div class="pg-head has-hero"><div class="pg-head-main">' : ''}
 <h1 class="pg-title" data-qa-text>${md(content.title)}</h1>
 ${page.part ? `<div class="pg-part acc" style="--acc:${accVar(firstK, nAcc)}">${md(page.part)}</div>` : ''}
@@ -151,7 +179,8 @@ ${hero ? `</div><div class="pg-hero"><img src="${esc(hero)}" style="aspect-ratio
 ${sections}
 ${page.closing ? `<div class="pg-closing" data-qa-text>${md(page.closing)}</div>` : ''}
 <footer class="pg-foot"><div class="pg-src">${md(footnote)}</div>
-<div class="pg-brand">${brand.name ? `<div class="pg-brand-name">${md(brand.name)}</div>` : ''}<div class="pg-brand-meta">${md(meta)}</div></div></footer>
+<div class="pg-brand${brand.avatar ? ' has-ava' : ''}">${brand.avatar ? `<img class="pg-brand-ava" src="${esc(brand.avatar)}" alt="">` : ''}<div>${brand.name ? `<div class="pg-brand-name">${md(brand.name)}</div>` : ''}<div class="pg-brand-meta">${md([brand.tagline, meta].filter(Boolean).join(' · '))}</div></div></div></footer>
 </main>
+${ctx.wide ? '' : HUG_SCRIPT}
 </body></html>`;
 }

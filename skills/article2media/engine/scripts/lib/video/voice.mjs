@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readWav, writeWav, trimSpeech, stats, concat } from './wav.mjs';
-import { toSpoken, isVoiced, voicedOnly, plainText, intToZh, latinWords } from './text.mjs';
+import { toSpoken, isVoiced, voicedOnly, speechUnits, plainText, intToZh, latinWords } from './text.mjs';
 import { medianF0 } from './pitch.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -100,6 +100,10 @@ function hfCached(repo) {
   return fs.existsSync(dir);
 }
 
+// edge-tts runs from uv's cache only; EDGE_INSTALL is the one-time command that puts it there.
+const EDGE_RUN = ['run', '--offline', '--no-project', '--quiet', '--with', 'edge-tts', 'python'];
+export const EDGE_INSTALL = 'uv run --no-project --with edge-tts python -c "import edge_tts"';
+
 let DETECTED;
 /** What this machine can do. Never installs or downloads anything. */
 export function detectVoice({ fresh = false } = {}) {
@@ -109,10 +113,13 @@ export function detectVoice({ fresh = false } = {}) {
   const asrModel = process.env.ARTICLE2MEDIA_ASR_MODEL || 'mlx-community/whisper-large-v3-turbo';
   const whisperPy = (mlxPy && ok(mlxPy, ['-c', 'import mlx_whisper'], { timeout: 60000 }) ? mlxPy : null) || findPython('mlx_whisper', ['ARTICLE2MEDIA_ASR_PYTHON']);
   const uvx = ok('uv', ['--version']);
+  // edge-tts counts only when it is already in uv's cache: `--offline` never downloads the package.
+  const edgeReady = uvx && ok('uv', [...EDGE_RUN, '-c', 'import edge_tts'], { timeout: 60000 });
   DETECTED = {
     voxcpm: mlxPy && model ? { python: mlxPy, model } : null,
     whisper: whisperPy && hfCached(asrModel) ? { python: whisperPy, model: asrModel } : null,
-    edge: uvx ? { cmd: 'uv' } : null,
+    edge: edgeReady ? { cmd: 'uv' } : null,
+    edgeInstall: edgeReady ? null : uvx ? EDGE_INSTALL : `先装 uv（https://docs.astral.sh/uv/），再运行：${EDGE_INSTALL}`,
     say: process.platform === 'darwin' && ok('say', ['-v', '?']) ? { cmd: 'say' } : null,
   };
   DETECTED.best = DETECTED.voxcpm ? 'voxcpm' : DETECTED.edge ? 'edge' : DETECTED.say ? 'say' : null;
@@ -138,7 +145,7 @@ export function planChunks(scenes, say, maxLen = 90) {
     let cur = null;
     for (const s of sentences) {
       const text = lines[s.li].slice(s.from, s.to);
-      const len = voicedOnly(text).length;
+      const len = Math.ceil(speechUnits(text));
       if (cur && cur.len + len <= maxLen && cur.li === s.li) { cur.to = s.to; cur.len += len; continue; }
       if (cur) chunks.push(cur);
       cur = { scene: sc.id, li: s.li, from: s.from, to: s.to, len };
@@ -194,8 +201,8 @@ async def main():
             elif ch["type"] == "WordBoundary": words.append([ch["text"], ch["offset"] / 1e7, (ch["offset"] + ch["duration"]) / 1e7])
     json.dump(words, open(sys.argv[5], "w"), ensure_ascii=False)
 asyncio.run(main())`;
-    const r = spawnSync('uv', ['run', '--no-project', '--quiet', '--with', 'edge-tts', 'python', '-c', code, it.text, voiceName, rate, mp3, words], { encoding: 'utf8', timeout: 180000 });
-    if (r.status !== 0) throw new Error(`edge-tts 失败（需要联网）：${(r.stderr || '').slice(-400)}`);
+    const r = spawnSync('uv', [...EDGE_RUN, '-c', code, it.text, voiceName, rate, mp3, words], { encoding: 'utf8', timeout: 180000 });
+    if (r.status !== 0) throw new Error(`edge-tts 失败（合成需要联网；音色 ${voiceName}）：${(r.stderr || '').slice(-400)}`);
     toWav48(mp3, it.out);
     fs.rmSync(mp3, { force: true });
   }
@@ -237,7 +244,7 @@ function runAsr(det, files) {
 }
 
 /** Normalize ASR text for comparison: digits → Chinese reading, keep voiced characters only. */
-const normAsr = (s) => voicedOnly(String(s).replace(/\d[\d,]*(\.\d+)?/g, (m) => {
+const normAsr = (s) => voicedOnly(String(s).toLowerCase().replace(/\d[\d,]*(\.\d+)?/g, (m) => {
   const [i, f] = m.replace(/,/g, '').split('.');
   return intToZh(Number(i)) + (f ? '点' + [...f].map((d) => '零一二三四五六七八九'[d]).join('') : '');
 }));
@@ -276,7 +283,7 @@ function alignChars(target, timed, dur) {
   for (let i = 1; i <= n; i++) { D[i * W] = i; P[i * W] = 1; }
   for (let j = 1; j <= m; j++) { D[j] = j; P[j] = 2; }
   for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) {
-    const sub = D[(i - 1) * W + j - 1] + (target[i - 1] === timed[j - 1].ch ? 0 : 1);
+    const sub = D[(i - 1) * W + j - 1] + (target[i - 1].toLowerCase() === timed[j - 1].ch ? 0 : 1);
     const del = D[(i - 1) * W + j] + 1, ins = D[i * W + j - 1] + 1;
     const best = Math.min(sub, del, ins);
     D[i * W + j] = best;
@@ -319,6 +326,7 @@ export async function synthesize(scenes, dir, opts = {}) {
     if (opts.backend === 'voxcpm') throw new Error('VoxCPM2 需要一个参考音色：先用 video.mjs voice-import 导入，或 voice-design 设计一个');
     backend = det.edge ? 'edge' : det.say ? 'say' : null;
   }
+  if (backend === 'edge' && !det.edge) throw new Error(`edge-tts 还没装（不会自动下载）：${det.edgeInstall}`);
   if (!backend || !det[backend]) throw new Error(`没有可用的配音方式${opts.backend ? `（要求 ${opts.backend}）` : ''}：见 video.mjs doctor`);
   voice ||= { id: 'system', name: '系统语音', edge_fallback: 'zh-CN-YunxiNeural' };
   const chunks = planChunks(scenes, opts.say || {});
@@ -339,7 +347,8 @@ export async function synthesize(scenes, dir, opts = {}) {
     const tr = trimSpeech(data, sr);
     const st = stats(tr.data);
     const dur = tr.data.length / sr;
-    const rate = voicedOnly(c.spoken).length / Math.max(0.1, dur);
+    // 字 per second: Latin words count by syllables, so a line with "Anthropic" is not read as rushed and stretched.
+    const rate = speechUnits(c.spoken) / Math.max(0.1, dur);
     const problems = [];
     if (tr.empty) problems.push('没有声音');
     if (tr.truncated) problems.push('结尾被截断');
@@ -357,7 +366,7 @@ export async function synthesize(scenes, dir, opts = {}) {
     }
     let c_er = null;
     if (a) {
-      const ref = voicedOnly(c.spoken), hyp = normAsr(a.text);
+      const ref = voicedOnly(c.spoken).toLowerCase(), hyp = normAsr(a.text);
       c_er = cer(ref, hyp);
       if (c_er > 0.2) problems.push(`识别错字率 ${(c_er * 100).toFixed(0)}%`);
       const lastRef = ref.slice(-1);
@@ -383,7 +392,7 @@ export async function synthesize(scenes, dir, opts = {}) {
     else if (attempt === 0) log('  全部段落已缓存，直接复用');
     if (fresh) {
       if (backend === 'voxcpm') runVoxcpm(det, voice, items.filter((it) => !fs.existsSync(it.out)), cdir);
-      else if (backend === 'edge') runEdge(voice.edge_fallback, opts.rate || '+0%', items, cdir);
+      else if (backend === 'edge') runEdge(voice.edge_fallback || 'zh-CN-YunxiNeural', opts.rate || '+0%', items, cdir);
       else runSay(items);
     }
     const asr = runAsr(det, items.map((it) => it.out));

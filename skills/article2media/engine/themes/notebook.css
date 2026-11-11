@@ -48,3 +48,16 @@ p b, li b, .q b, .c-text b, .pg-intro b, .pg-closing b, .end-h b {
   transform: rotate(-1.2deg); border-radius: 0;
 }
 .cv-rule { height: 4px; background: repeating-linear-gradient(90deg, var(--acc) 0 10px, transparent 10px 16px); }
+
+/* Cover: two strips of washi tape and a sticky note for the deck */
+.cv-deco { right: -30px; top: 52px; width: 190px; height: 90px; }
+.wx-cover.wide .cv-deco { width: 420px; height: 200px; right: -50px; top: 30%; }
+.cv-deco i:nth-child(1) { inset: 0 0 auto auto; width: 86%; height: 22px; border-radius: 0; opacity: .5; background: var(--accent-2); transform: rotate(8deg); }
+.cv-deco i:nth-child(2) { inset: 30px 6% auto auto; width: 60%; height: 18px; border: 0; border-radius: 0; opacity: .45; background: var(--accent-3); transform: rotate(-5deg); }
+.cv-deco i:nth-child(3) { display: none; }
+.cv-band { margin: auto 0 4px; padding: 18px 20px 18px; background: #FFE9A0; color: var(--ink); transform: rotate(-.8deg); box-shadow: 2px 5px 12px rgba(80, 70, 50, .18); }
+.cv-band .cv-sub { font-family: var(--font-head); font-size: 18px; }
+.cv-chips span { border: 0; border-bottom: 2px solid var(--accent-2); border-radius: 0; padding: 0 2px; }
+.cv-hook .c-foot { background: transparent; color: var(--muted); }
+.cv-title b { background: linear-gradient(transparent 60%, rgba(255, 207, 72, .75) 60%); color: var(--ink); }
+.card.c-quote .cq-text { font-weight: 700; }

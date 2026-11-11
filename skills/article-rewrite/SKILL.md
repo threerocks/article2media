@@ -3,7 +3,7 @@ name: article-rewrite
 description: 改写（总结）：把一篇文章读透、重组成一份和风格无关的结构化改写稿 content.json——核心主张、分页分节、每节的判断式标题、要点、金句、两张图表（柱状、流程、对比、结构等 20 多种）和数据面板，可选执行清单、核对数字、AI 插画；还能导出成一篇文章 rewrite.md（图表转成图片）。改写稿交给长图、卡片出图，rewrite.md 交给公众号排版。Use when the user wants an article summarized / restructured / 提炼 / 改写 / 整理成要点 for visual content, wants a 总结 before 长图、小红书卡片 or 公众号, or another article2media skill needs content.json; also when the user wants a structured summary article (总结稿) of a long post.
 argument-hint: <article.md|目录> [--pages N] [--lang zh|en] [--verify] [--illustrate] [--style 主题名]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.0.1"
+version: "2.2.0"
 ---
 
 # 改写（article-rewrite）
@@ -14,7 +14,7 @@ version: "2.0.1"
 
 | 产出 | 给谁用 |
 |---|---|
-| `content.json`（改写稿） | `long-image`（杂志长图）、`image-cards`（总结卡片）、`explainer-video`（参考事实与结构） |
+| `content.json`（改写稿） | `long-image`（总结长图）、`image-cards`（总结卡片）、`explainer-video`（参考事实与结构） |
 | `rewrite.md` + `rewrite-assets/`（改写稿的文章形态，`export.mjs` 导出） | `wechat-layout`（公众号总结），也可以直接给人读 |
 
 ## 输入

@@ -106,6 +106,22 @@ function structureHtml(st) {
   return '';
 }
 
+/**
+ * Map a theme's variables onto the whiteboard's. --ink / --muted have the same names in both, so the board must
+ * inherit them (a `--ink: var(--ink)` declaration refers to itself and is invalid, which blanks the spine and dots).
+ * The three marker colors carry roles; a theme whose first accents repeat (quiet has one, swiss two) keeps the
+ * board's own blue / green, toned toward the theme's ink, so roles stay distinguishable.
+ */
+export function themeBridge(themeCss) {
+  const acc = (n) => (themeCss.match(new RegExp(`--accent-${n}\\s*:\\s*([^;}]+)`)) || [])[1]?.trim().toLowerCase();
+  const [a1, a2, a3] = [1, 2, 3].map(acc);
+  const blue = a2 && a2 !== a1 ? 'var(--accent-2)' : 'color-mix(in srgb, #2D5FA8 78%, var(--ink))';
+  const green = a3 && a3 !== a1 && a3 !== a2 ? 'var(--accent-3)' : 'color-mix(in srgb, #2F7D4F 78%, var(--ink))';
+  return `html,body{background:var(--bg);}.wb-page{--board:var(--bg);--ink:inherit;--muted:inherit;--rule:color-mix(in srgb, var(--ink) 16%, transparent);` +
+    `--red:var(--accent-1);--blue:${blue};--green:${green};--wb-on:var(--on-acc, #fff);--wb-paper:var(--card, color-mix(in srgb, var(--bg) 88%, var(--ink)));` +
+    `--hand:var(--font-head);--text:var(--font-body);}`;
+}
+
 export function buildWhiteboard(wb, { css, themeCss, useTheme, images = {}, credit = '' }) {
   const steps = wb.steps || [];
   const rels = wb.relations || [];
@@ -133,7 +149,7 @@ export function buildWhiteboard(wb, { css, themeCss, useTheme, images = {}, cred
   });
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${esc(wb.title || '白板')}</title>
 <style>${css}</style>
-${useTheme ? `<style>${themeCss}</style><style>.wb-page{--board:var(--bg);--ink:var(--ink);--muted:var(--muted);--red:var(--accent-1);--blue:var(--accent-2, var(--accent-1));--green:var(--accent-3, var(--accent-1));--hand:var(--font-head);--text:var(--font-body);}</style>` : ''}
+${useTheme ? `<style>${themeCss}</style><style>${themeBridge(themeCss)}</style>` : ''}
 </head><body><div class="wb-page">
 <header class="wb-head"><h1 class="whiteboard-title">${md(wb.title)}</h1>${wb.question ? `<p class="whiteboard-question">${md(wb.question)}</p>` : ''}${wb.orientation ? `<p class="whiteboard-orientation">${md(wb.orientation)}</p>` : ''}</header>
 <section class="reasoning-spine">${body}</section>

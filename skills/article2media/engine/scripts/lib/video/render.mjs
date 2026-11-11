@@ -9,6 +9,7 @@ import { esc } from '../markup.mjs';
 import { buildScene, cueResolver } from './scenes.mjs';
 import { captionPhrases, plainText } from './text.mjs';
 import { renderSfx } from './sfx.mjs';
+import { TRANSITIONS, prepareClips, buildBed } from './media.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL = path.resolve(HERE, '..', '..', '..');
@@ -48,16 +49,26 @@ function captionHtml(text, from, ranges) {
   return html.replace(/<\/b><b>/g, '');
 }
 
-/** Build the timeline and the stage HTML. */
-export function buildStage(video, align, themeCss, opts = {}) {
-  const T = { ...TIMING, ...(opts.timing || {}) };
+/** When the narration starts, how long the video is, and each scene's window on the video clock. */
+export function sceneWindows(video, align, timing) {
+  const T = { ...TIMING, ...(timing || {}) };
   const VO = T.coverHold + T.coverFade + T.voiceLead; // narration starts here
-  const nAcc = Math.max(1, new Set(themeCss.match(/--accent-\d+\s*:/g) || []).size);
-  const acc = (k) => `var(--accent-${(k % nAcc) + 1})`;
   const total = +(VO + align.duration + T.tail).toFixed(3);
   const scenes = video.scenes;
+  const starts = scenes.map((sc, i) => (i === 0 ? T.coverHold + T.coverFade : VO + (align.scenes.find((a) => a.id === sc.id)?.start ?? 0) - T.sceneLead));
+  return { T, VO, total, starts, windows: scenes.map((_, i) => ({ in: starts[i], out: i + 1 < scenes.length ? starts[i + 1] : total })) };
+}
+
+/** Build the timeline and the stage HTML. */
+export function buildStage(video, align, themeCss, opts = {}) {
+  const { T, VO, total, starts } = sceneWindows(video, align, opts.timing);
+  const nAcc = Math.max(1, new Set(themeCss.match(/--accent-\d+\s*:/g) || []).size);
+  const acc = (k) => `var(--accent-${(k % nAcc) + 1})`;
+  const scenes = video.scenes;
   const sa = (sc) => align.scenes.find((a) => a.id === sc.id);
-  const starts = scenes.map((sc, i) => (i === 0 ? T.coverHold + T.coverFade : VO + (sa(sc)?.start ?? 0) - T.sceneLead));
+  // How scene i replaces the one before it. Unset = 'rise', the look the video has always had (no `tr` on its events).
+  const trOf = (i) => { const x = scenes[i]?.transition ?? video.transition; return TRANSITIONS.includes(x) && x !== 'rise' ? x : null; };
+  const clips = [];
 
   const events = [], counters = [], karaoke = [], captions = [];
   const sceneHtml = scenes.map((sc, i) => {
@@ -66,8 +77,10 @@ export function buildStage(video, align, themeCss, opts = {}) {
     const at = cueResolver(a, VO, win.in + 0.3, win.out - 0.3);
     const built = buildScene(sc, { at, win, align: a, offset: VO });
     const sid = `sc${i}`;
-    events.push({ id: sid, p: 'scene-in', t: win.in });
-    if (i + 1 < scenes.length) events.push({ id: sid, p: 'scene-out', t: win.out - 0.26 });
+    const trIn = trOf(i), trOut = i + 1 < scenes.length ? trOf(i + 1) : null;
+    events.push({ id: sid, p: 'scene-in', t: win.in, ...(trIn ? { tr: trIn } : {}) });
+    // rise / slide: the old scene leaves just before the cut. cut / fade / push: both scenes change at the cut itself.
+    if (i + 1 < scenes.length) events.push({ id: sid, p: 'scene-out', t: trOut && trOut !== 'slide' ? win.out : win.out - 0.26, ...(trOut ? { tr: trOut } : {}) });
     events.push({ id: `${sid}cam`, p: 'cam', t: win.in, dur: win.out - win.in });
     for (const e of built.events) events.push({ ...e, scene: i, t: Math.max(win.in + 0.06, Math.min(e.t, win.out - 0.3)), raw: e.t });
     for (const c of built.counters || []) counters.push({ ...c, t: Math.max(win.in + 0.06, c.t) });
@@ -90,8 +103,22 @@ export function buildStage(video, align, themeCss, opts = {}) {
       const first = Math.min(...built.events.map((e) => e.t).filter((t) => t > win.in + 0.3), win.out);
       events.push({ id: `${sid}deco`, p: 'recede', t: Math.max(win.in + 0.6, first - 0.35) });
     }
+    // AI illustration: light scenes carry it above the content, dense ones in the band under the captions.
+    const illoSrc = opts.sceneImages?.[sc.id];
+    const place = ['top', 'bottom'].includes(sc.illustration_place) ? sc.illustration_place : ['title', 'quote', 'number'].includes(sc.type) && !sc.image ? 'top' : 'bottom';
+    // A clip from the source video takes the illustration's slot (top / bottom) or sits behind the whole scene (full).
+    // The <img> shows one pre-cut frame; the stage script swaps it for the frame of the time being captured.
+    const clip = opts.sceneClips?.[sc.id];
+    let illo = illoSrc && !clip ? `<figure class="v-scene-illo ${place}" id="${sid}illo"><img src="${esc(illoSrc)}" alt=""></figure>` : '';
+    if (illo) events.push({ id: `${sid}illo`, p: 'fade', t: win.in + 0.08, dur: 0.5 });
+    if (clip) {
+      const scrim = clip.place === 'full' && clip.scrim != null ? ` style="--clip-scrim:${Math.round(clip.scrim * 100)}%"` : '';
+      illo = `<figure class="v-scene-illo v-clip ${clip.place}" id="${sid}clip"${scrim}><img id="${sid}clipi" src="${esc(clip.base)}00000.jpg" alt=""></figure>`;
+      if (clip.place !== 'full') events.push({ id: `${sid}clip`, p: 'fade', t: win.in + 0.08, dur: 0.5 });
+      clips.push({ id: `${sid}clipi`, base: clip.base, n: clip.n, t: win.in, until: win.out, place: clip.place });
+    }
     return (
-      `<section class="v-scene${sc.chip ? ' has-chip' : ''} acc" id="${sid}" style="--acc:${acc(i)}">${deco}` +
+      `<section class="v-scene${sc.chip ? ' has-chip' : ''}${clip?.place === 'full' ? ' has-clip-full' : ''} acc" id="${sid}" style="--acc:${acc(i)}">${deco}${illo}` +
       (sc.chip ? `<div class="v-chip" id="${sid}chip" style="top:-40px;left:0">${md(sc.chip)}</div>` : '') +
       `<div class="v-cam" id="${sid}cam">${built.html}</div></section>`
     );
@@ -111,6 +138,8 @@ export function buildStage(video, align, themeCss, opts = {}) {
     c.fadeOut = !nx || nx.t - c.until > 0.05;
   });
   const cap = captionStyle(opts.theme, video.captions);
+  // Captions are the only text put on the page after it has loaded. A hidden copy of all of it makes the web font's
+  // glyph slices load before the first frame; otherwise, on a cold font cache, a new line is blank for a few frames.
 
   const cv = video.cover || {};
   const coverImg = opts.coverImage ? `<div class="v-cover-img"><img src="${esc(opts.coverImage)}" alt=""></div>` : '';
@@ -125,10 +154,10 @@ export function buildStage(video, align, themeCss, opts = {}) {
   const sceneInfo = scenes.map((sc, i) => {
     const sid = `sc${i}`;
     const inT = starts[i], outT = i + 1 < scenes.length ? starts[i + 1] : total;
-    const own = events.filter((e) => e.scene === i && !/^sc\d+(cam|chip|deco)?$/.test(e.id) && e.p !== 'pulse' && e.p !== 'focus');
+    const own = events.filter((e) => e.scene === i && !/^sc\d+(cam|chip|deco|illo|clip)?$/.test(e.id) && e.p !== 'pulse' && e.p !== 'focus');
     return { id: sc.id, in: inT, out: outT, lastReveal: own.length ? Math.max(...own.map((e) => e.raw ?? e.t)) : inT };
   });
-  const data = { total, events, counters, karaoke, captions, captionStyle: cap.style };
+  const data = { total, events, counters, karaoke, captions, captionStyle: cap.style, ...(clips.length ? { clips, fps: opts.fps || T.fps } : {}) };
   const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>video stage</title>
 <style>${readCss('components.css')}</style>
 <style>${readCss('video.css')}</style>
@@ -140,6 +169,7 @@ export function buildStage(video, align, themeCss, opts = {}) {
 <div class="v-credit">${esc(opts.credit || '')}</div>
 ${sceneHtml}
 <div class="v-cap cap-${cap.style}" style="${esc(cap.css)}"><span class="c" id="cap" style="visibility:hidden"></span></div>
+<div class="v-cap cap-${cap.style}" style="${esc(cap.css)};visibility:hidden" aria-hidden="true"><span class="c">${captions.map((c) => c.html).join('')}</span></div>
 ${cover}
 </main>
 <script>window.__TL = ${JSON.stringify(data)};</script>
@@ -152,7 +182,7 @@ ${cover}
 const STAGE_JS = String.raw`
 (function () {
   const TL = window.__TL;
-  const E = 'cubic-bezier(.2,.8,.2,1)', BACK = 'cubic-bezier(.34,1.56,.64,1)';
+  const E = 'cubic-bezier(.2,.8,.2,1)', BACK = 'cubic-bezier(.34,1.56,.64,1)', PUSH = 'cubic-bezier(.65,0,.35,1)';
   const P = {
     'scene-in': [[{ opacity: 0, transform: 'translateY(34px)' }, { opacity: 1, transform: 'none' }], .38, E],
     'scene-out': [[{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-26px)' }], .26, 'ease-in'],
@@ -171,12 +201,23 @@ const STAGE_JS = String.raw`
     mark: [[{ backgroundSize: '0% 100%' }, { backgroundSize: '100% 100%' }], .4, E],
     pulse: [[{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], .5, 'ease-in-out'],
     focus: [[{ transform: 'scale(1)' }, { transform: 'scale(1.045)' }, { transform: 'scale(1)' }], .6, 'ease-in-out'],
+    // Scene transitions other than the default (events carry tr). cut: both scenes swap between two frames.
+    // fade: a crossfade. slide: the old scene leaves to the left, the new one comes in from the right.
+    // push: the new scene pushes the old one off the left edge (both move one stage width, nothing fades).
+    'scene-in:cut': [[{ opacity: 0 }, { opacity: 1 }], .001, 'linear'],
+    'scene-out:cut': [[{ opacity: 1 }, { opacity: 0 }], .001, 'linear'],
+    'scene-in:fade': [[{ opacity: 0 }, { opacity: 1 }], .4, 'ease-in-out'],
+    'scene-out:fade': [[{ opacity: 1 }, { opacity: 0 }], .4, 'ease-in-out'],
+    'scene-in:slide': [[{ opacity: 0, transform: 'translateX(90px)' }, { opacity: 1, transform: 'none' }], .4, E],
+    'scene-out:slide': [[{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-60px)' }], .26, 'ease-in'],
+    'scene-in:push': [[{ opacity: 1, transform: 'translateX(540px)' }, { opacity: 1, transform: 'none' }], .45, PUSH],
+    'scene-out:push': [[{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'translateX(-540px)' }], .45, PUSH],
   };
   const anims = [];
   for (const e of TL.events) {
     const el = document.getElementById(e.id);
     if (!el) continue;
-    const [kf, dur, easing] = P[e.p];
+    const [kf, dur, easing] = P[e.tr ? e.p + ':' + e.tr : e.p];
     let target = el;
     if ((e.p === 'draw' || e.p === 'check') && el.tagName !== 'path') target = el.querySelector('path') || el;
     // Entrances hold their first frame before they start (fill both); exits and accents must not (forwards / none),
@@ -187,8 +228,12 @@ const STAGE_JS = String.raw`
     a.pause();
     anims.push(a);
   }
-  const cnt = TL.counters.map((c) => ({ ...c, el: document.getElementById(c.id) })).filter((c) => c.el);
+  // Counters keep the decimals of their endpoints (0 → 4.5 counts 0.0 … 4.5, not 0 … 5).
+  const decs = (n) => (String(n).split('.')[1] || '').length;
+  const cnt = TL.counters.map((c) => ({ ...c, dec: Math.min(3, Math.max(decs(c.from), decs(c.to))), el: document.getElementById(c.id) })).filter((c) => c.el);
   const kar = TL.karaoke.map((k) => ({ ...k, el: document.getElementById(k.id) })).filter((k) => k.el);
+  // Source-video clips: frame k of a clip is the file base + 00000.jpg …; past its last frame the clip holds.
+  const clips = (TL.clips || []).map((c) => ({ ...c, el: document.getElementById(c.id), cur: 0 })).filter((c) => c.el);
   const cap = document.getElementById('cap'), prog = document.getElementById('prog');
   const capMax = cap.parentElement.clientWidth;
   let capNow = null;
@@ -197,8 +242,8 @@ const STAGE_JS = String.raw`
     for (const a of anims) a.currentTime = t * 1000;
     for (const c of cnt) {
       const x = Math.max(0, Math.min(1, (t - c.t) / c.dur));
-      const v = Math.round(c.from + (c.to - c.from) * ease(x));
-      c.el.textContent = c.prefix + v.toLocaleString('en-US') + c.suffix;
+      const v = Number((c.from + (c.to - c.from) * ease(x)).toFixed(c.dec));
+      c.el.textContent = c.prefix + v.toLocaleString('en-US', { minimumFractionDigits: c.dec, maximumFractionDigits: c.dec }) + c.suffix;
     }
     for (const k of kar) {
       const x = Math.max(0, Math.min(1, (t - k.t) / .18));
@@ -219,7 +264,17 @@ const STAGE_JS = String.raw`
       cap.style.opacity = Math.max(0, Math.min(fi, fo)).toFixed(3);
     }
     prog.style.width = (100 * Math.min(1, t / TL.total)).toFixed(2) + '%';
-    return true;
+    // Swap clip frames only while their scene can be on screen; the capture waits until each new frame is decoded.
+    const waits = [];
+    for (const c of clips) {
+      if (t < c.t - .6 || t > c.until + .6) continue;
+      const k = Math.max(0, Math.min(c.n - 1, Math.floor((t - c.t) * TL.fps + 1e-6)));
+      if (k === c.cur) continue;
+      c.cur = k;
+      c.el.src = c.base + String(k).padStart(5, '0') + '.jpg';
+      waits.push(c.el.decode().catch(() => {}));
+    }
+    return waits.length ? Promise.all(waits).then(() => true) : true;
   };
   window.__seek(0);
 })();
@@ -229,8 +284,10 @@ const STAGE_JS = String.raw`
  * Frames of the encoded video in which a caption should be fully shown but the caption band is empty (the caption
  * flickers out for a frame). Measured on the real pixels: horizontal edge energy of the band, which text produces
  * and an empty band does not. Returns { frames: [frame numbers], checked } or null when it cannot measure.
+ * skip: [[from, to]] stretches left out because moving footage fills the band there (a full-frame clip), which
+ * would read as text.
  */
-export function captionDropouts(mp4, captions, fps) {
+export function captionDropouts(mp4, captions, fps, skip = []) {
   // .v-cap: left 30, right 72, top 676, height 64 CSS px on a 540×960 stage rendered at 2×.
   const W = 292, H = 32;
   const r = spawnSync('ffmpeg', ['-v', 'error', '-i', mp4, '-vf', `crop=876:128:60:1352,scale=${W}:${H},format=gray`, '-f', 'rawvideo', '-'], { maxBuffer: 1 << 28 });
@@ -245,6 +302,7 @@ export function captionDropouts(mp4, captions, fps) {
   const want = [];
   for (let f = 0; f < total; f++) {
     const t = f / fps;
+    if (skip.some(([a, b]) => t >= a && t <= b)) continue;
     if (captions.some((c) => t >= c.t + (c.fadeIn === false ? 0.04 : 0.2) && t <= c.until - (c.fadeOut === false ? 0.04 : 0.25))) want.push([f, energy(f)]);
   }
   if (!want.length) return { frames: [], checked: 0 };
@@ -271,19 +329,23 @@ function loudnorm(input, output, filterPre, extraInputs = []) {
 
 /**
  * Render the video. Returns a report.
- * opts: { dir, theme, themeCss, credit, coverImage, narration, log, fps }
+ * opts: { dir, theme, themeCss, credit, coverImage, sceneImages: { sceneId: url }, narration, log, fps,
+ *         media: resolveMedia() result — clips and music, both optional }
  */
 export async function renderVideo(video, align, opts) {
   const log = opts.log || console.log;
   const fps = opts.fps || TIMING.fps;
   const out = opts.dir;
   fs.mkdirSync(path.join(out, 'review'), { recursive: true });
-  const { html, data, VO, total } = buildStage(video, align, opts.themeCss, opts);
+  const issues = [];
+  // Source-video clips are cut into frames before the stage is built (the stage needs their frame counts).
+  const sceneClips = prepareClips(video, opts.media, sceneWindows(video, align, opts.timing).windows, { dir: out, fps, log });
+  for (const [id, c] of Object.entries(sceneClips)) if (c.short) issues.push({ level: 'warn', where: `镜头 ${id}`, msg: `片段只有 ${(c.n / fps).toFixed(1)}s，比镜头短 ${c.short}s：放完后停在最后一帧` });
+  const { html, data, VO, total } = buildStage(video, align, opts.themeCss, { ...opts, fps, sceneClips });
   const stagePath = path.join(out, 'stage.html');
   fs.writeFileSync(stagePath, html);
 
   const browser = await launchBrowser();
-  const issues = [];
   let capDrops = null;
   try {
     const page = await browser.newPage();
@@ -316,9 +378,9 @@ export async function renderVideo(video, align, opts) {
     for (const q of qa) issues.push({ level: 'error', where: `第 ${q.scene + 1} 镜`, msg: `「${q.el}」超出安全区 ${q.over}px` });
 
     // Audio beds (rendered by WebAudio in the same browser).
-    // Audio: narration plus soft transition whooshes (background music is not part of this release).
+    // Audio: narration plus soft transition whooshes; user-supplied music and clip sound are added after mastering.
     const sfxPath = path.join(out, 'sfx.wav');
-    const whooshes = data.events.filter((e) => e.p === 'scene-in').map((e) => e.t).filter((t) => t > 1);
+    const whooshes = data.events.filter((e) => e.p === 'scene-in' && e.tr !== 'cut').map((e) => e.t).filter((t) => t > 1);
     await renderSfx(page, { seconds: total, whooshes, out: sfxPath });
 
     // Frames → ffmpeg.
@@ -345,7 +407,7 @@ export async function renderVideo(video, align, opts) {
     await new Promise((r) => enc.on('close', r));
     if (!fs.existsSync(silentMp4)) throw new Error(`编码失败：${encErr.slice(-500)}`);
     log(`  ${nFrames} 帧，用时 ${((Date.now() - t0) / 1000).toFixed(0)}s`);
-    capDrops = captionDropouts(silentMp4, data.captions, fps);
+    capDrops = captionDropouts(silentMp4, data.captions, fps, (data.clips || []).filter((c) => c.place === 'full').map((c) => [c.t - 0.1, c.until + 0.6]));
 
     // Cover images: full 9:16 frame 0 and a 3:4 center crop for 小红书-style covers.
     ff(['-i', path.join(out, 'cover.jpg'), path.join(out, 'cover.png')]);
@@ -380,6 +442,26 @@ export async function renderVideo(video, align, opts) {
   const loud = loudnorm(mixRaw, mixPath);
   fs.rmSync(mixRaw);
 
+  // Music and clip sound go in AFTER the narration is mastered: the narration keeps exactly the level it has without
+  // them, and loudnorm never sees (and so never pumps) the bed. A limiter that only touches peaks keeps -1 dB.
+  const speech = align.scenes.flatMap((s) => (s.lines || []).filter((l) => l.start != null).map((l) => [VO + l.start, VO + l.end]));
+  const clipAudio = Object.entries(sceneClips).filter(([, c]) => c.audio).map(([id, c]) => ({ ...c.audio, t: c.t, id }));
+  const mu = opts.media?.music?.file ? { ...opts.media.music, volume: video.music?.volume, duck: video.music?.duck } : null;
+  const bed = mu || clipAudio.length ? buildBed({ music: mu, clipAudio, speech, total }) : null;
+  let bedLoud = null;
+  if (bed?.pcm) {
+    const bedPath = path.join(out, 'bed.f32'), voiceMix = path.join(out, 'mix-voice.wav');
+    fs.writeFileSync(bedPath, Buffer.from(bed.pcm.buffer, bed.pcm.byteOffset, bed.pcm.byteLength));
+    fs.renameSync(mixPath, voiceMix);
+    ff(['-i', voiceMix, '-f', 'f32le', '-ar', '48000', '-ac', '2', '-i', bedPath, '-filter_complex',
+      '[0:a][1:a]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.891:level=0:attack=5:release=60[a]', '-map', '[a]', '-ar', '48000', '-t', String(total), mixPath]);
+    const m = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', mixPath, '-af', 'ebur128=peak=true:framelog=quiet', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 64 << 20 });
+    const I = [...(m.stderr || '').matchAll(/\bI:\s+(-?[\d.]+) LUFS/g)].pop(), pk = [...(m.stderr || '').matchAll(/Peak:\s+(-?[\d.]+) dBFS/g)].pop();
+    bedLoud = { i: I ? Number(I[1]) : null, tp: pk ? Number(pk[1]) : null };
+    fs.rmSync(bedPath);
+    fs.rmSync(voiceMix);
+  }
+
   const mp4 = path.join(out, 'video.mp4');
   ff(['-i', path.join(out, 'video-silent.mp4'), '-i', mixPath, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000', '-shortest',
     '-metadata', `title=${plainText(video.cover?.title || '').replace(/\n/g, ' ')}`,
@@ -391,7 +473,8 @@ export async function renderVideo(video, align, opts) {
   const srt = data.captions.map((c, k) => `${k + 1}\n${tc(c.t)} --> ${tc(c.until)}\n${c.html.replace(/<[^>]+>/g, '')}\n`).join('\n');
   fs.writeFileSync(path.join(out, 'captions.srt'), srt);
 
-  return { mp4, total, VO, fps, captions: data.captions, captionStyle: data.captionStyle, events: data.events, karaoke: data.karaoke, issues, loudness: loud, capDrops };
+  return { mp4, total, VO, fps, captions: data.captions, captionStyle: data.captionStyle, events: data.events, karaoke: data.karaoke, issues, loudness: loud, capDrops,
+    clips: Object.entries(sceneClips).map(([id, c]) => ({ id, place: c.place, t: c.t, play: c.play })), bed: bed ? { notes: bed.notes, music: bed.music, loudness: bedLoud } : null };
 }
 
 const tc = (t) => {

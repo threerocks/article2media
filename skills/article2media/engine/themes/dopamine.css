@@ -65,3 +65,16 @@
 /* The display face is for big headlines only; sentences and small titles use the body face */
 .pg-closing, .qt-text, .end-h, .p-quote .q { font-family: var(--font-body); font-weight: 900; }
 .p-quote .q { font-weight: 400; }
+
+/* Cover: candy blobs behind the headline, gradient band */
+.cv-deco { right: -70px; top: -60px; width: 300px; height: 300px; filter: blur(2px); }
+.cv-deco i:nth-child(1) { inset: 0 0 30% 30%; opacity: .55; background: #FFD23F; }
+.cv-deco i:nth-child(2) { inset: 40% 30% 0 10%; border: 0; opacity: .4; background: #FF4FA3; }
+.cv-deco i:nth-child(3) { left: 62%; bottom: 8%; width: 30%; height: 30%; opacity: .45; background: #3DB8FF; }
+.cv-band, .cv-hook .c-foot { background: var(--pop-grad); color: #FFFFFF; }
+.cv-band { border-radius: 28px 28px 0 0; }
+.cv-chips span { border: 0; background: rgba(255, 255, 255, .26); }
+.card.c-quote { background: linear-gradient(160deg, var(--acc), color-mix(in srgb, var(--acc) 55%, #FFC83D)); }
+.cq-text, .cn-num b, .cv-num b { font-family: var(--font-head); }
+.cq-text { font-weight: 400; }
+.cv-vs-col.yes { background: var(--pop-grad); }

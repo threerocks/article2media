@@ -143,12 +143,18 @@ async function viaYtdlp(src, ctx) {
   if (!yt) throw new Error(`${PLATFORM[src.kind]}需要 yt-dlp（macOS：brew install yt-dlp；或 pip install -U yt-dlp）`);
   const base = ['--ignore-config', '--no-warnings', '--no-playlist', '--socket-timeout', '30'];
   // Newer YouTube pages need a JS runtime to solve signature challenges; this script already runs on Node.
-  if (src.kind === 'youtube' && yt.jsRuntimes) base.push('--no-js-runtimes', '--js-runtimes', `node:${process.execPath}`, '--remote-components', 'ejs:github');
+  // The challenge solver (yt-dlp-ejs) ships with Homebrew's yt-dlp and with `pip install "yt-dlp[default]"`. Fetching it
+  // from GitHub at run time is a download, so it only happens when the user opts in.
+  if (src.kind === 'youtube' && yt.jsRuntimes) {
+    base.push('--no-js-runtimes', '--js-runtimes', `node:${process.execPath}`);
+    if (process.env.ARTICLE2MEDIA_YTDLP_REMOTE_EJS === '1') base.push('--remote-components', 'ejs:github');
+  }
   if (ctx.cookies) base.push('--cookies-from-browser', ctx.cookies);
   const ytdlp = (args, timeout) => run(yt.cmd[0], [...yt.cmd.slice(1), ...base, ...args, src.url], { timeout });
   const explain = (stderr, what) => {
     const s = (stderr || '').trim();
     if (/Sign in to confirm|not a bot|cookies/i.test(s) && !ctx.cookies) return `${what}：平台要求浏览器 cookie（${s.split('\n').at(-1).slice(0, 140)}）。两个办法：确认可以复用本机浏览器的状态后加 --cookies-from-browser chrome 重试；或者把视频保存到本地，直接传文件路径`;
+    if (/ejs|challenge solver|n challenge|signature solving/i.test(s) && process.env.ARTICLE2MEDIA_YTDLP_REMOTE_EJS !== '1') return `${what}：yt-dlp 缺少 YouTube 的 JS 校验组件（${s.split('\n').at(-1).slice(0, 140)}）。安装它：pip install -U "yt-dlp[default]"（Homebrew 版已自带，brew upgrade yt-dlp）；或设置 ARTICLE2MEDIA_YTDLP_REMOTE_EJS=1，允许 yt-dlp 运行时从 GitHub 下载该组件`;
     return `${what}：${s.slice(-500) || '未知错误'}`;
   };
 

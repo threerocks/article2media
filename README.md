@@ -6,7 +6,7 @@
 
 开源 Claude Code / Codex Skills · 抓取 · 视频转文字 · 改写 · 翻译 · 杂志长图 · 小红书卡片 · 公众号排版 · 竖屏口播视频 · 原文排版 · 白板论证 · 漫画
 
-[![version](https://img.shields.io/badge/version-2.0.0-1f6feb)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-2.2.0-1f6feb)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-2ea043)](LICENSE)
 [![node](https://img.shields.io/badge/node-%E2%89%A5%2022-339933)](#依赖)
 [![npm deps](https://img.shields.io/badge/npm%20dependencies-0-2ea043)](#设计原则)
@@ -30,7 +30,7 @@
 - **验收**：每种产出都自动检查，不合格就报错。
 - **依赖**：只需要 Node.js 22 和 Chrome。
 
-![同一篇文章的七种产出，以及 21 套主题](docs/showcase.jpg)
+![同一篇文章的七种产出](docs/showcase.jpg)
 
 <p align="center"><sub>示例：Dan Koe 的 X 长文《The most lucrative AI business to start in 2027》。七种产出各用了一套主题，口播视频用的是「资讯播报男声」。<a href="docs/samples/dan-koe-video.mp4">看示例视频</a> · <a href="#随包音色">听 6 款音色</a></sub></p>
 
@@ -56,7 +56,7 @@ article2media 把这件事交给 AI。你给一个链接，流程分三步：
 | **原文、总结、翻译三条路** | 原文路径一字不改，逐块读回比对；总结路径重组结构、配图表；翻译路径全文不删，脚本检查结构是否逐块对应。三条路都能接到长图、卡片和公众号。 |
 | **文章和视频都能当原文** | 视频先转成逐字稿文章：人工字幕优先，其次平台的原语言自动字幕，都没有时用本地 Whisper 识别。繁体转简体、专有名词纠错、时间轴都会处理好，后面的流程和文章完全一样。 |
 | **先读懂，再排版** | 不是截图，也不是机械摘要。Claude 规划结构、改写标题、挑选图表、核对数字，产出只含内容的 `content.json`。版式和主题由脚本负责，换风格不用重写内容。 |
-| **一份内容，多种产出** | 一次改写，同时出长图、卡片（3:4 / 4:5 / 1:1 / 9:16）和公众号；口播视频、白板、漫画另有专门的脚本。21 套主题对所有图文产出通用，口播视频沿用主题的配色、字体和卡片样式。 |
+| **一份内容，多种产出** | 一次改写，同时出长图、卡片（3:4 / 4:5 / 1:1 / 9:16）和公众号；口播视频、白板、漫画另有专门的脚本。12 套主推主题对所有图文产出通用，口播视频沿用主题的配色、字体和卡片样式。 |
 | **每种产出都有验收** | 版面检查溢出、截断和重叠。原文长图、原文卡片、公众号排版都逐块读回比对，改一个字就失败。翻译检查块数、结构、漏译和数字。白板要求每段原文都有去向。视频审片检查首句时长、画面静止、语速、字幕闪断、成片逐帧的字幕丢帧和响度。不合格就以非零码退出。 |
 | **视频质量达到能发布的水准** | 本地 VoxCPM2 生成 48 kHz 配音，Whisper 逐字对齐，数字和要点在说到的那一刻出现。语速按从容讲解控制在约 4.5 字/秒。字幕不闪烁，样式跟随主题。 |
 | **版权与合规写进流程** | 随包 6 款音色全部只凭文字描述设计，不模仿任何真人。克隆音色只留在本机，使用时会提醒。成片首帧和 MP4 元数据都带 AI 生成标识，产出都署原文出处。 |
@@ -75,6 +75,7 @@ claude plugin install article2media@article2media
 
 ```bash
 bash scripts/install.sh      # 在仓库里：Node、Chrome、字体，以及做视频要的配音、对齐、出图、ffmpeg
+node skills/article2media/scripts/fonts.mjs    # 可选：把主题字体下载到本地（约 65 MB，可加 --mirror <主机>），之后出图不再联网加载字体
 ```
 
 装成插件后，第一次使用时 skill 会自己跑环境检查。
@@ -229,41 +230,51 @@ flowchart LR
 
 - **内容与风格分离**：主题只是一组 CSS 变量加少量结构覆盖，换主题只需重新渲染。
 - **零 npm 依赖**：只用 Node 22 内置的 WebSocket 和 fetch，直接驱动本机已有的 Chrome。
+- **字体可以本地化**：主题用的是网络字体。网络不稳定（如中国大陆）时先跑一次 `fonts.mjs`，之后所有版式自动改用本地字体，还能同时跑多个出图任务；`--list` 查看，`--clean` 删除。出图过程本身从不下载。
+- **出图服务可配置**：按 已登录的 Codex CLI → OpenAI → Gemini 选择，登录、额度或不可用时自动换下一个并提示，内容被拒绝不会换；模型用 `ARTICLE2MEDIA_IMAGE_MODEL_CODEX|OPENAI|GEMINI`、服务用 `ARTICLE2MEDIA_IMAGE_PROVIDER` 或 `~/.config/article2media/config.json` 指定。
 - **能力探测，不强求**：出图（Codex CLI → OpenAI → Gemini）、本地配音（VoxCPM2 → edge-tts → 系统语音）、逐字对齐和视频转写（Whisper）、视频字幕（yt-dlp）都是先探测再选用。
 - **图里不放字**：生成的图片不含文字，所有文字都由 HTML 排版，所以可校验、可修改、不会出现乱码。
 
+## 发布这件事：封面、品牌、批量和数据
+
+出图只是一半。2.2 起，围绕"发出去并且有效果"加了一组工具：
+
+| 做什么 | 怎么用 |
+|---|---|
+| **封面多版本** | `cards.mjs content.json --covers`：同一篇出几版封面（不同版式，或 `cover.alts` 里写的不同钩子），挑一版，或分开发布比效果 |
+| **品牌包** | `brand.json` 里写头像、品牌色、期号、一行介绍：封面左上角、末张品牌栏、长图页脚统一带上，读者认得出是谁的图 |
+| **轻量形态** | `--form onepage` 一页看完、`--form quotes` 金句图、`--form qa` 问答卡：同一份改写稿切出来，适合高频更新和引流 |
+| **批量** | `batch.mjs init links.txt --spec "cards:3:4,long,wechat"`：一次抓一批链接，生成看板 `queue.md`；Claude 按 `next` 一条条做 |
+| **发布清单** | `batch.mjs checklist <批次或目录>`：每篇一份 `publish.md`——上传顺序、备选标题、文案、标签、平台限制检查 |
+| **效果闭环** | 发布后说一句数据，`stats.mjs add` 记进 `publish.json`；`stats.mjs report` 按平台对比主题、封面版式、形式的收藏率和互动率，样本不足 5 条的明确标注 |
+
+这些数据只存在你本机的工作目录里。攒够样本后，选主题指南会把它当作两个同样合适的选项之间的裁决依据，不会覆盖你明确说的偏好。
+
 ## 主题
 
-21 套主题，同一份内容可以用任意主题渲染。没有指定时，Claude 依次按「明确偏好 → 题材 → 投放场景」选一个，规则见 [`references/styles.md`](skills/article2media/references/styles.md)。
+主推 12 套主题，同一份内容可以用任意主题渲染。每套除了配色和字体，还有自己的封面（标题处理、装饰、导语区）和整页金句卡的画法。没有指定时，Claude 依次按「明确偏好 → 题材 → 投放场景」选一个，规则见 [`references/styles.md`](skills/article2media/references/styles.md)。
 
-![21 套主题的封面和第一张内容卡](docs/themes.jpg)
+![12 套主推主题的封面和第一张内容卡](docs/themes.jpg)
 
 <details>
-<summary><b>21 套主题一览</b></summary>
+<summary><b>12 套主推主题一览</b></summary>
 
 | 主题 | 气质 | 首选场景 |
 |---|---|---|
-| `editorial` | 商业杂志：暖白纸面、宋体、沉稳主色 | 商业、创业、行业分析、人物观点 |
-| `swiss` | 瑞士极简：纯白、粗黑分割线、红黑双色 | 数据、研究、财经、严肃议题 |
+| `editorial` | 商业杂志：暖白纸面、宋体、沉稳主色 | 商业、创业、行业分析、人物观点、个人复盘 |
+| `swiss` | 瑞士极简：纯白、粗黑分割线、红黑双色 | 数据、研究、财经、严肃议题；设计与艺术 |
+| `quiet` | 静线：暖纸底、一种暗朱红、细线与留白 | 哲思、书与论文的深度解读、人文随笔 |
+| `bento` | 便当格：灰底白色大圆角卡片、撞色 | 产品与工具的测评、横评、盘点；数码新品 |
+| `brutal` | 新粗野大字报：粗黑描边、硬投影、高饱和色块 | 教程、攻略、清单；自媒体运营与副业 |
+| `dopamine` | 多巴胺：彩色光斑、糖果撞色、大圆角 | 好物种草、美食探店、穿搭、健康养生、生活记录 |
 | `midnight` | 深色科技：近黑底、霓虹色、等宽标签 | AI、编程、开发者工具 |
-| `glass` | 液态玻璃：彩色柔光、磨砂玻璃卡片、大圆角 | 面向普通用户的 AI 应用、数码与汽车新品 |
-| `bento` | 便当格：灰底白色大圆角卡片、撞色 | 产品与工具的测评、横评、盘点 |
-| `cloud` | 云舞白（Pantone 2026 年度色）：柔白大留白、莫兰迪色 | 情绪、成长、人文随笔 |
-| `earth` | 暖色大地：奶咖米色、陶土、焦糖、橄榄 | 个人经历与复盘、旅行、健康养生 |
-| `notebook` | 格纹手帐：方格纸、霞鹜文楷、荧光笔 | 学习方法、读书笔记 |
-| `memo` | 备忘录：仿手机备忘录、黄色导航、圆形勾选框 | 职场技巧、效率方法、生活小技巧 |
-| `collage` | 拼贴手账：牛皮纸、胶带图卡、手写便利贴 | 生活记录、vlog、校园、兴趣爱好 |
-| `brutal` | 新粗野大字报：粗黑描边、硬投影、高饱和色块 | 小红书和 IG 上的教程、攻略、清单 |
-| `pop` | 波普漫画：网点、粗黑描边、三原色、对白气泡 | 品牌营销、广告创意、流行文化 |
-| `dopamine` | 多巴胺：彩色光斑、糖果撞色、大圆角 | 好物种草、美食探店、自媒体成长 |
-| `y2k` | 千禧液态铬：镭射彩光、得意黑斜体、果冻按钮 | 美妆、娱乐、追星、二次元 |
-| `prosperity` | 繁荣主义：波尔多红、喜悦粉、金色双线、扇贝花边 | 时尚穿搭、节日送礼、品牌联名 |
-| `riso` | 孔版印刷：纸张颗粒、荧光粉加孔版蓝、错位套色 | 设计、艺术、展览、摄影 |
-| `pixel` | 像素复古：像素字体、窗口标题栏、硬投影 | 游戏、互联网文化与怀旧 |
-| `film` | 电影感：暗角、胶片颗粒、宽银幕黑边、字幕式金句 | 影视评论、人物特写、深度访谈 |
-| `guochao` | 国潮：朱红明黄、粗宋、印章标签、回纹祥云 | 节庆民俗、国货品牌、城市文旅 |
-| `shanshui` | 新中式：宣纸、京华老宋体、石青石绿远山、朱砂印 | 古典历史、诗词国学、茶与器物 |
-| `quiet` | 静线：暖纸底、暖黑字、只有一种暗朱红、细线与留白 | 哲思、单一观念、书与论文的深度解读 |
+| `film` | 电影感：胶片颗粒、宽银幕黑边、字幕式金句 | 影视评论、人物传记与访谈 |
+| `guochao` | 国潮：朱红明黄、粗宋、印章、回纹与祥云 | 节庆民俗、非遗、国货品牌、城市文旅 |
+| `shanshui` | 新中式：宣纸、老宋体、远山、朱砂印 | 古典历史、诗词国学、茶与器物 |
+| `notebook` | 格纹手帐：方格纸、霞鹜文楷、荧光笔 | 学习方法、读书笔记、实用技巧合集 |
+| `y2k` | 千禧液态铬：镭射彩光、得意黑斜体、果冻按钮 | 美妆、娱乐、追星、二次元、游戏 |
+
+另有 9 套经典主题（`cloud`、`earth`、`memo`、`glass`、`collage`、`pop`、`pixel`、`prosperity`、`riso`）保留可用，`--theme <名称>` 照常渲染，只是不再主推，也没有专属封面。
 
 </details>
 
@@ -313,9 +324,9 @@ Claude 先当导演写 `video.json`，内容包括受众、开场策略、封面
 
 ### 字幕
 
-单行显示，同一句里的短语合并，换字幕时硬切，短停顿里字幕一直保留，所以不会闪烁。7 种样式预设分配给 21 套主题，关键词用主题色。
+单行显示，同一句里的短语合并，换字幕时硬切，短停顿里字幕一直保留，所以不会闪烁。7 种样式预设分配给各套主题，关键词用主题色。
 
-![21 套主题的字幕样式](docs/caption-styles.jpg)
+![各主题的字幕样式](docs/caption-styles.jpg)
 
 ### 审片与交付
 
@@ -544,7 +555,7 @@ skills/
 │       ├── scripts/             # fetch / render / export / translate / illustrate / video / comic / doctor
 │       │   └── lib/             # chrome（CDP 驱动）、各版式与原文账本、校验、出图；media/（视频转逐字稿）；video/（配音、对齐、镜头、渲染、字幕）
 │       ├── layouts/             # 各版式的结构 CSS
-│       ├── themes/              # 21 个主题 CSS；illustration-styles.json、caption-styles.json
+│       ├── themes/              # 主题 CSS（catalog.json 列出 12 套主推和 9 套经典）；illustration-styles.json、caption-styles.json
 │       └── assets/voices/       # 6 款公开音色（catalog.json）
 ├── article-fetch/               # 每个能力：SKILL.md、agents/openai.yaml、references/、scripts/（指向引擎的入口）
 ├── video-transcript/
@@ -568,7 +579,7 @@ scripts/install.sh               # 依赖检查（只提示，不下载）
 
 ```bash
 node tests/run-all.mjs --quick                  # 约 4 分钟：11 个 skill 的结构、CLI 行为、各能力检查、每个示例 × 6 种版式
-node tests/run-all.mjs                          # 约 20 分钟：4 个示例 × 6 种版式 × 21 个主题
+node tests/run-all.mjs                          # 4 个示例 × 7 种版式 × 12 套主推主题
 node tests/run-all.mjs --themes pop,dopamine    # 只测指定主题
 node tests/theme-sheet.mjs                      # 重新生成 docs/themes.jpg
 claude plugin validate .
@@ -578,7 +589,10 @@ claude plugin validate .
 
 ## 路线图
 
-- [x] 杂志长图、卡片组、21 套主题、模型自动选主题
+- [x] 长图（手机版 + 宽版）、卡片组（6 种封面、3 种整页卡）、12 套主推主题、模型自动选主题
+- [x] 封面多版本、品牌包、轻量形态（一页看完、金句图、问答卡）
+- [x] 批量流水线、发布清单、发布数据记录与报告
+- [x] 本地字体、出图服务可配置与自动切换、视觉回归测试
 - [x] 公众号图文、AI 插画
 - [x] 口播视频：本地配音、逐字同步、语速与字幕质检
 - [x] 原文全文排版、白板论证、漫画
@@ -602,7 +616,7 @@ claude plugin validate .
   - verbatim layouts that never change a word (long image, cards, WeChat), each read back block by block;
   - a full Chinese translation checked block for block against the source;
   - an argument whiteboard and a comic.
-- **Themes:** 21.
+- **Themes:** 12 main, 9 legacy.
 - **Verification:** every output is checked automatically, and a failed check exits non-zero.
 - **Requirements:** zero npm dependencies, only Node.js 22 and Chrome.
 - **Install:** `claude plugin marketplace add threerocks/article2media && claude plugin install article2media@article2media`, or `npx skills add threerocks/article2media -g -a claude-code -a codex -y` (install all skills: they share `article2media/engine`).

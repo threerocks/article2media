@@ -40,3 +40,18 @@
 .c-take { font-family: var(--font-head); background: transparent; border-left: 2px solid var(--accent-1); }
 .box.hl { background: transparent; color: var(--acc-text); border-width: 1.6px; }
 .pg-closing { font-weight: 700; }
+
+/* Cover and full-card sentences stay on lines: one thin circle, a ruled deck, no filled color */
+.cv-deco i:nth-child(1), .cv-deco i:nth-child(3) { display: none; }
+.cv-deco i:nth-child(2) { inset: 0; border-width: 1px; opacity: .7; }
+.cv-band, .cv-hook .c-foot { background: transparent; color: var(--ink); }
+.cv-band { border-top: 1px solid var(--ink); margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
+.cv-band .cv-sub { font-family: var(--font-head); }
+.cv-chips span { border: 0; border-bottom: 1px solid var(--accent-1); border-radius: 0; padding: 0 0 1px; font-weight: 500; }
+.cv-hook .c-foot { color: var(--muted); }
+.card.c-quote { background: var(--bg); color: var(--ink); }
+.card.c-quote .c-top, .card.c-quote .c-foot { color: var(--muted); opacity: 1; }
+.card.c-quote .sec-label { color: var(--acc-text); border: 0; padding-left: 0; }
+.card.c-quote .cq-mark { color: var(--accent-1); opacity: 1; }
+.card.c-quote .cq { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.cv-vs-col.yes { background: transparent; color: var(--ink); border: 1.5px solid var(--accent-1); }

@@ -24,7 +24,7 @@ html, body { width: 540px; background: #F7F7F3; }
 .step-depth { font-family: var(--hand); font-size: 13px; color: var(--muted); background: var(--board); padding: 0 2px; line-height: 1; position: relative; z-index: 1; }
 .step-dot { width: 13px; height: 13px; border-radius: 50%; background: var(--board); border: 3px solid var(--ink); margin-top: 6px; position: relative; z-index: 1; }
 .step-panel { min-width: 0; }
-.step-role { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .08em; padding: 1px 8px; border-radius: 4px; color: #fff; background: var(--muted); }
+.step-role { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .08em; padding: 1px 8px; border-radius: 4px; color: var(--wb-on, #fff); background: var(--muted); }
 .step-claim { font-family: var(--hand); font-size: 25px; line-height: 1.45; font-weight: 700; margin: 6px 0 6px; }
 .step-support { color: var(--ink); }
 .step-residue { margin-top: 8px; font-family: var(--hand); font-size: 17px; color: var(--muted); padding-left: 12px; border-left: 2px dashed var(--rule); }
@@ -46,14 +46,14 @@ html, body { width: 540px; background: #F7F7F3; }
 
 /* Local structures embedded in a step */
 .wb-struct { margin: 10px 0 4px; font-size: 15px; line-height: 1.5; }
-.wb-node { display: inline-block; border: 1.8px solid var(--ink); border-radius: 8px 10px 9px 11px; padding: 4px 10px; background: color-mix(in srgb, #fff 70%, transparent); }
+.wb-node { display: inline-block; border: 1.8px solid var(--ink); border-radius: 8px 10px 9px 11px; padding: 4px 10px; background: var(--wb-paper, color-mix(in srgb, #fff 70%, transparent)); }
 .wb-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .wb-arrow { font-style: normal; color: var(--red); font-weight: 700; }
 .wb-timeline { list-style: none; display: grid; gap: 6px; border-left: 2px solid var(--blue); padding-left: 12px; }
 .wb-timeline b { font-family: var(--hand); color: var(--blue); margin-right: 8px; }
 .wb-branch .wb-root { font-family: var(--hand); font-weight: 700; margin-bottom: 6px; }
 .wb-forks { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
-.wb-fork { border: 1.8px solid var(--ink); border-radius: 10px 8px 11px 9px; padding: 6px 10px; background: color-mix(in srgb, #fff 70%, transparent); }
+.wb-fork { border: 1.8px solid var(--ink); border-radius: 10px 8px 11px 9px; padding: 6px 10px; background: var(--wb-paper, color-mix(in srgb, #fff 70%, transparent)); }
 .wb-fork b { display: block; font-family: var(--hand); color: var(--red); }
 .wb-matrix { border-collapse: collapse; width: 100%; }
 .wb-matrix th, .wb-matrix td { border: 1.5px solid var(--ink); padding: 5px 7px; vertical-align: top; text-align: left; }

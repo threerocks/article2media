@@ -73,3 +73,22 @@ b { font-weight: 700; }
 .pg-closing { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); letter-spacing: .06em; }
 .end-cta { background: transparent; color: var(--seal); border: 1.5px solid var(--seal); letter-spacing: .3em; font-weight: 600; }
 .pg-brand-name { font-weight: 400; letter-spacing: .1em; }
+
+/* Cover: the hills stay visible — no color band, the deck sits on the paper; full-card sentences read like a scroll */
+.cv-deco { display: none; }
+.cv-band, .cv-hook .c-foot { background: transparent; color: var(--ink); }
+.cv-band { margin-left: 0; margin-right: 0; padding: 0 0 86px; }
+.cv-band .cv-sub { font-family: var(--font-head); font-size: 18px; letter-spacing: .04em; }
+.cv-chips span { border: 0; padding: 0; font-weight: 400; letter-spacing: .1em; }
+.cv-chips span + span::before { content: "·"; margin: 0 8px 0 0; color: var(--seal); }
+.cv-hook .c-foot { color: var(--muted); }
+.card.c-quote { background: var(--bg); background-image: var(--ss-paper); color: var(--ink); }
+.card.c-quote .c-top, .card.c-quote .c-foot { color: var(--muted); opacity: 1; }
+.card.c-quote .sec-label { border: 0; border-left: 3px solid var(--acc); color: var(--acc-text); }
+.card.c-quote .cq { align-items: center; text-align: center; }
+.card.c-quote .cq-text { font-weight: 400; letter-spacing: .1em; }
+.card.c-quote .cq-mark { display: none; }
+.card.c-quote .cq-from { color: var(--seal); letter-spacing: .2em; }
+.cv-vs-col { border-radius: 2px; }
+.cv-vs-col.yes { background: transparent; color: var(--ink); border: 1.5px solid var(--seal); }
+.cv-vs-mid { background: var(--seal); }

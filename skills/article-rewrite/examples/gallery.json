@@ -25,6 +25,7 @@
         {
           "label": "选择",
           "heading": "三个选项，\n只突出一个",
+          "card": {"style": "quote"},
           "paragraphs": ["stack 用来表现“有几种选择”，并高亮其中一个。flow 表现加工流程。"],
           "takeaway": "先有背景，再有内容。",
           "figures": [
@@ -47,6 +48,7 @@
         {
           "label": "层级",
           "heading": "从支柱\n到角度",
+          "card": {"style": "number", "number": {"value": "75–280", "unit": "个点子", "label": "从 3 根支柱展开，再变成 300–1,400 个角度"}},
           "paragraphs": ["tree 表现层级；stats 放一两个要让人记住的大数字。"],
           "figures": [
             { "type": "tree", "caption": "他的内容地图，画成一棵树。", "root": "支柱", "children": ["话题", "话题", "话题"], "leaves": 5, "note": "3–4 支柱 → 5–7 话题" },

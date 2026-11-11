@@ -29,3 +29,15 @@
   --accent-10: #566423;
   --accent-11: #7b2d5b;
 }
+
+/* Cover: a magazine front — masthead bar, ruled deck instead of a color band */
+.cv-deco { inset: 0; width: auto; height: auto; }
+.cv-deco i:nth-child(1) { inset: 0 0 auto 0; height: 8px; border-radius: 0; opacity: 1; }
+.cv-deco i:nth-child(2) { inset: auto; right: 30px; top: 58px; width: 54px; height: 54px; border: 0; border-radius: 0; opacity: .9; background: linear-gradient(var(--acc), var(--acc)) 0 0 / 100% 3px no-repeat, linear-gradient(var(--acc), var(--acc)) 100% 0 / 3px 100% no-repeat; }
+.cv-deco i:nth-child(3) { display: none; }
+.cv-band, .cv-hook .c-foot { background: transparent; color: var(--ink); }
+.cv-band { border-top: 3px double var(--ink); margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
+.cv-band .cv-sub { font-family: var(--font-head); font-size: 18px; }
+.cv-chips span { border-radius: 0; border-width: 0 0 0 3px; border-color: var(--acc); padding: 0 0 0 9px; font-weight: 500; }
+.cv-hook .c-foot { color: var(--muted); }
+.wx-cover.wide .cv-deco i:nth-child(2) { right: 56px; top: 44px; width: 120px; height: 120px; }

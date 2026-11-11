@@ -2,20 +2,22 @@
 // Generate the AI illustrations a content.json asks for (cover.illustration and "illustration" figures),
 // in the picture style of each theme, and cache them next to content.json in illustrations/.
 //
-//   node illustrate.mjs <content.json> [--theme 名称|a,b|all] [--provider gemini|openai|mock]
+//   node illustrate.mjs <content.json> [--theme 名称|a,b|all] [--provider codex|openai|gemini|mock]
 //                       [--model 模型] [--force] [--dry-run]
 //
-// 服务商：codex（Codex CLI 内置出图，用 ChatGPT 登录，不需要 key；默认模型 gpt-6-astra）
-//         gemini（GEMINI_API_KEY 或 GOOGLE_API_KEY，默认模型 gemini-3.1-flash-image）
-//         openai（OPENAI_API_KEY，默认模型 gpt-image-1）
+// 服务商：codex（Codex CLI 内置出图，用 ChatGPT 登录，不需要 key）
+//         openai（OPENAI_API_KEY）
+//         gemini（GEMINI_API_KEY 或 GOOGLE_API_KEY，图像模型需要付费层）
 //         mock（本地生成占位图，不联网，用于测试版式）
-// 不传 --provider 时：有 Codex CLI 用 codex，否则 OpenAI，否则 Gemini，都没有就报错。
+// 不传 --provider 时：已登录的 Codex CLI → OpenAI → Gemini，都没有就报错；选中的服务因登录 / 额度 / 不可用而失败时
+// 自动换下一个可用的并说明（内容被拒绝不会换）。--provider 或 ARTICLE2MEDIA_IMAGE_PROVIDER 指定后不自动换。
+// 默认模型和覆盖方式（环境变量、~/.config/article2media/config.json）见 lib/imagegen.mjs。
 // 主题：默认用 content.json 的 theme（长图和卡片主题不同时两个都生成）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { generateImage, pickImageProvider } from './lib/imagegen.mjs';
+import { generateImage, imageConfig, pickImageProvider } from './lib/imagegen.mjs';
 import { buildPrompt, collectIllustrations, fileForKey, keyFor, readIndex, styleFor, themePalette, writeIndex } from './lib/illustrations.mjs';
 
 const { values: opt, positionals } = parseArgs({
@@ -30,7 +32,7 @@ const { values: opt, positionals } = parseArgs({
   },
 });
 if (opt.help || !positionals[0]) {
-  console.error('用法：node illustrate.mjs <content.json> [--theme 名称|all] [--provider gemini|openai|mock] [--model 模型] [--force] [--dry-run]');
+  console.error('用法：node illustrate.mjs <content.json> [--theme 名称|all] [--provider codex|openai|gemini|mock] [--model 模型] [--force] [--dry-run]');
   process.exit(opt.help ? 0 : 2);
 }
 
@@ -46,15 +48,17 @@ if (!items.length) {
 const THEMES_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'themes');
 const available = fs.readdirSync(THEMES_DIR).filter((f) => f.endsWith('.css')).map((f) => f.replace(/\.css$/, ''));
 const fromContent = typeof content.theme === 'object' && content.theme ? Object.values(content.theme) : [content.theme || 'editorial'];
-const themes = [...new Set(opt.theme === 'all' ? available : opt.theme ? opt.theme.split(',').map((s) => s.trim()) : fromContent)];
+const MAIN = JSON.parse(fs.readFileSync(path.join(THEMES_DIR, 'catalog.json'), 'utf8')).main; // "all" = the main themes
+const themes = [...new Set(opt.theme === 'all' ? MAIN : opt.theme ? opt.theme.split(',').map((s) => s.trim()) : fromContent)];
 for (const t of themes) if (!available.includes(t)) { console.error(`[illustrate] 没有主题 "${t}"`); process.exit(2); }
 
-const provider = pickImageProvider(opt.provider);
+let provider, models;
+try { provider = pickImageProvider(opt.provider); models = imageConfig().models; } catch (e) { console.error(`[illustrate] ${e.message}`); process.exit(2); }
 if (!provider) {
   console.error('[illustrate] 没有可用的图像服务：安装并登录 Codex CLI（codex login），或设置 OPENAI_API_KEY / GEMINI_API_KEY，或用 --provider mock 生成占位图。');
   process.exit(2);
 }
-const model = opt.model || { codex: process.env.ARTICLE2MEDIA_CODEX_IMAGE_MODEL || 'gpt-6-astra', gemini: 'gemini-3.1-flash-image', openai: 'gpt-image-1', mock: 'mock' }[provider];
+const model = opt.model || { ...models, mock: 'mock' }[provider]; // defaults and overrides live in lib/imagegen.mjs
 if (!model) { console.error(`[illustrate] 未知服务商 ${provider}，可用：codex、gemini、openai、mock`); process.exit(2); }
 
 // ---------- providers: (prompt, aspect) → { buf, ext } ----------
@@ -77,12 +81,8 @@ async function mock(prompt, aspect, it, theme) {
   return { buf: Buffer.from(svg), ext: 'svg' };
 }
 
-const PROVIDERS = {
-  codex: (p, a) => generateImage('codex', p, a, { model }),
-  gemini: (p, a) => generateImage('gemini', p, a, { model }),
-  openai: (p, a) => generateImage('openai', p, a, { model }),
-  mock,
-};
+// A real provider may hand over to the next available one (see generateImage); the result says which one drew.
+const draw = provider === 'mock' ? mock : (p, a) => generateImage(provider, p, a, { model: opt.model });
 
 // ---------- jobs ----------
 const idx = readIndex(dir);
@@ -109,18 +109,21 @@ let ok = 0;
 for (const j of jobs) {
   const t0 = Date.now();
   try {
-    const { buf, ext } = await PROVIDERS[provider](buildPrompt(j.it, j.theme, content), j.it.aspect, j.it, j.theme);
+    const r = await draw(buildPrompt(j.it, j.theme, content), j.it.aspect, j.it, j.theme);
+    const { buf, ext } = r;
+    const used = { provider: r.provider || provider, model: r.model || model };
     if (j.have && opt.force) fs.rmSync(j.have);
     const file = path.join(outDir, `${j.key}.${ext}`);
     fs.writeFileSync(file, buf);
-    idx[j.key] = { prompt: j.it.prompt, kind: j.it.kind, aspect: j.it.aspect, theme: j.theme, style: j.style, provider, model, file: path.basename(file), created: new Date().toISOString() };
+    idx[j.key] = { prompt: j.it.prompt, kind: j.it.kind, aspect: j.it.aspect, theme: j.theme, style: j.style, ...used, file: path.basename(file), created: new Date().toISOString() };
     writeIndex(dir, idx);
     ok++;
-    console.log(`✓ [${j.theme}] ${j.it.where} → illustrations/${path.basename(file)}（${((Date.now() - t0) / 1000).toFixed(1)}s，${Math.round(buf.length / 1024)} KB）`);
+    console.log(`✓ [${j.theme}] ${j.it.where} → illustrations/${path.basename(file)}（${((Date.now() - t0) / 1000).toFixed(1)}s，${Math.round(buf.length / 1024)} KB${used.provider !== provider ? `，由 ${used.provider} / ${used.model} 生成` : ''}）`);
+    if (r.crop) console.log(`  ⚠ ${r.crop}`);
   } catch (e) {
-    console.error(`✗ [${j.theme}] ${j.it.where}：${e.message}`);
+    console.error(`✗ [${j.theme}] ${j.it.where}：${e.kind === 'refused' ? '内容被拒绝（没有换别的服务重试）：' : ''}${e.message}`);
     process.exitCode = 1;
-    if (/额度是 0|401|403/.test(e.message)) break; // the next calls would fail the same way
+    if (['auth', 'quota'].includes(e.kind) || (e.kind === 'unavailable' && !e.transient) || /额度[是为] 0|401|403/.test(e.message)) break; // the next calls would fail the same way
   }
 }
 console.log(`\n完成 ${ok} / ${jobs.length} 张。${ok ? '重新运行 render.mjs 即可用上。' : ''}`);

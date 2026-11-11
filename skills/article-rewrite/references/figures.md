@@ -146,6 +146,7 @@ node ${CLAUDE_SKILL_DIR}/scripts/illustrate.mjs <content.json> --theme all      
 node ${CLAUDE_SKILL_DIR}/scripts/illustrate.mjs <content.json> --dry-run         # 只看拼好的提示词
 node ${CLAUDE_SKILL_DIR}/scripts/illustrate.mjs <content.json> --provider mock   # 离线占位图，只用来检查版式
 ```
+- 选中的服务因登录、额度或不可用失败时，会自动换下一个可用的并提示；内容被拒绝时直接报告，不换服务。模型和服务可用 `ARTICLE2MEDIA_IMAGE_MODEL_CODEX|OPENAI|GEMINI`、`ARTICLE2MEDIA_IMAGE_PROVIDER` 或 `~/.config/article2media/config.json` 指定。
 - 服务商：有 Codex CLI（`codex login`）就用它（默认模型 `gpt-6-astra`，不需要 key）；否则 `OPENAI_API_KEY`（`gpt-image-1`）；再否则 `GEMINI_API_KEY` / `GOOGLE_API_KEY`（`gemini-3.1-flash-image`）。Gemini 免费层没有图像额度，需要开通付费。
 - 换主题渲染时，如果该主题还没有对应插画，会借用其他主题已生成的版本并提示。
 

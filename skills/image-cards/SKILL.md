@@ -1,9 +1,9 @@
 ---
 name: image-cards
-description: 卡片：固定比例的图文卡片组——小红书 3:4（1080×1440）、Instagram 4:5、方图 1:1、竖屏 9:16，附总览图和发帖文案。两种输入：改写稿 content.json → 总结卡片（封面 + 每节一卡 + 清单 + 要点总结，21 套主题）；文章 article.md（原文、译文、逐字稿）→ 原文卡片（整篇按顺序分页成卡片，一字不改，逐块校验）。可以单独用，也可以接在抓取、改写、翻译后面。Use when the user wants 小红书图文, 轮播卡片, 知识卡片, 3:4 / 4:5 / 1:1 / 9:16 cards, Instagram carousel, 朋友圈方图, or 原文卡片 / 全文卡片 / 把全文做成小红书 — from an article or an existing content.json.
-argument-hint: <content.json|article.md|目录> [--ratio 3:4|4:5|1:1|9:16 或 小红书/IG] [--theme 主题名|a,b|all] [--out 目录]
+description: 卡片：固定比例的图文卡片组——小红书 3:4（1080×1440）、Instagram 4:5、方图 1:1、竖屏 9:16，附总览图和发帖文案。两种输入：改写稿 content.json → 总结卡片（封面 + 每节一卡 + 清单 + 要点总结，12 套主推主题）；文章 article.md（原文、译文、逐字稿）→ 原文卡片（整篇按顺序分页成卡片，一字不改，逐块校验）。可以单独用，也可以接在抓取、改写、翻译后面。Use when the user wants 小红书图文, 轮播卡片, 知识卡片, 3:4 / 4:5 / 1:1 / 9:16 cards, Instagram carousel, 朋友圈方图, or 原文卡片 / 全文卡片 / 把全文做成小红书 — from an article or an existing content.json.
+argument-hint: <content.json|article.md|目录> [--ratio 3:4|4:5|1:1|9:16 或 小红书/IG] [--covers] [--form quotes|onepage|qa] [--theme 主题名|a,b|all] [--out 目录]
 allowed-tools: Bash(node ${CLAUDE_SKILL_DIR}/scripts/*)
-version: "2.0.1"
+version: "2.2.0"
 ---
 
 # 卡片（image-cards）
@@ -31,7 +31,10 @@ version: "2.0.1"
 node ${CLAUDE_SKILL_DIR}/scripts/cards.mjs <目录>/content.json --ratio 3:4 --check   # 只校验：会出几张
 node ${CLAUDE_SKILL_DIR}/scripts/cards.mjs <目录>/content.json --ratio 3:4           # 出图，一组大约 5 秒
 node ${CLAUDE_SKILL_DIR}/scripts/cards.mjs <目录>/content.json --ratio 3:4 --theme brutal
+node ${CLAUDE_SKILL_DIR}/scripts/cards.mjs <目录>/content.json --covers                # 只出封面的几个版本，供挑选或对比发布
+node ${CLAUDE_SKILL_DIR}/scripts/cards.mjs <目录>/content.json --form onepage          # 轻量形态：onepage 一页看完 | quotes 金句图 | qa 问答卡
 ```
+- **封面多版本、轻量形态、品牌包**（头像、品牌色、期号）：xhs-guide.md 第 2.5 节。用户说"多出几个封面""金句图""一张图讲完""问答形式""加上我的头像 / 做成系列"时用。
 - 主题：content.json 的 `theme`（可写成 `{"long": …, "cards": …}` 分开指定）；都没有时按 `../article2media/references/styles.md` 选。卡片场景的主题调整见 styles.md 第 3 步。
 - **检查（最多 2 轮）**：先看 `overview.jpg`，有问题再打开单张卡。✗ 必须修；报「内容超出」「已自动省略」「图只放大到 x 倍」时，按 xhs-guide.md 第 2 节的顺序处理（缩短 `card.text`、改 `split`、`skip` 次要的节）。只改 content.json 再重渲，不手改 HTML。
 

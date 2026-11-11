@@ -84,3 +84,7 @@ body { width: 1200px; }
 .pg-brand { text-align: right; flex-shrink: 0; }
 .pg-brand-name { font-family: var(--font-brand, var(--font-head)); font-weight: 900; font-size: 25px; line-height: 1.2; }
 .pg-brand-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* Brand kit: avatar beside the name */
+.pg-brand.has-ava { display: flex; align-items: center; gap: 12px; text-align: left; }
+.pg-brand-ava { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: none; }

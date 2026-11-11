@@ -2,7 +2,7 @@
 
 黑白漫画分镜。**生成图**负责让角色、场景、动作和结果可见；**HTML** 负责把旁白、对白、音效字、概念名和来源写准确——图里一个字都不画。同时输出一张长漫画和一组小红书 3:4 卡片。
 
-需要出图能力（Codex CLI 登录即可，或 OpenAI / Gemini 付费 key）。没有时直接告诉用户做不了漫画，并给出可选替代（长图、白板）。
+需要出图能力（Codex CLI 登录即可，或 OpenAI / Gemini 付费 key）。服务按 已登录的 Codex CLI → OpenAI → Gemini 选择，登录、额度或不可用时自动换下一个并提示，内容被拒绝不会换；`doctor.mjs` 显示当前生效的服务和模型，可用 `ARTICLE2MEDIA_IMAGE_PROVIDER`、`ARTICLE2MEDIA_IMAGE_MODEL_CODEX|OPENAI|GEMINI` 或 `~/.config/article2media/config.json` 指定。没有时直接告诉用户做不了漫画，并给出可选替代（长图、白板）。
 
 ```bash
 node ${CLAUDE_SKILL_DIR}/scripts/comic.mjs check <目录>/comic.json
@@ -53,10 +53,10 @@ node ${CLAUDE_SKILL_DIR}/scripts/comic.mjs render <目录>/comic.json --theme qu
 ## 3. 画面纪律
 
 - 生成提示词自动加上：黑白漫画、纸白背景、角色锚点、单一可读动作、因果结果、网点与墨块控制；统一负向约束：不画对白泡、格线、旁白框、音效字、页码、任何文字、Logo、水印、彩色、照片感、多余角色，关键主体不裁切。
-- 锚点格通过后再批量生成；其余格把锚点图作为参考图，角色和画风才会一致。每格失败最多重试一次，仍失败就停止并说明。
+- 锚点格通过后再批量生成；其余格把锚点图作为参考图，角色和画风才会一致（三家服务都支持参考图）。每格失败最多重试一次，仍失败就停止并说明。
 - 人物用泛指的虚构角色，按原文写对性别和年龄，不画真实人物。成品页脚注明「画面由 AI 生成 · 人物为示意」。
 
 ## 4. 审片与交付
 
-- 先看 `comic/comic.png`（或 `review/slice-*.jpg`），再看 `comic/overview.jpg`（卡片）：角色是否连续、每格动作能否独立读懂、文字有没有压住脸和手。
+- 先看 `comic/comic.png`（超长时分成 `comic-01.png`、`comic-02.png` …；或看 `review/slice-*.jpg`），再看 `comic/overview.jpg`（卡片）：角色是否连续、每格动作能否独立读懂、文字有没有压住脸和手。
 - 交付：长漫画与卡片路径、格数与因果链（如"最小案例 → 零号模型 → 缺口 → 补位 → 重跑 → 回收"）、生成图张数与服务商、署名。

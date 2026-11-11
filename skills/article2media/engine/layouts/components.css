@@ -10,6 +10,7 @@ body {
   font-size: var(--fs-body, 16.5px);
   line-height: 1.75;
   font-kerning: normal;
+  text-autospace: normal; /* a thin gap between Chinese and Latin / digits, without typing spaces */
 }
 b { font-weight: 700; color: var(--ink-strong, var(--ink)); }
 p, li, [data-qa-text], .p-card, .q, .n { text-wrap: pretty; }

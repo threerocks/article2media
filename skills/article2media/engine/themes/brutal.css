@@ -54,3 +54,21 @@
 .cv-rule { background: #111111; }
 .end-cta { border: 3px solid #111111; box-shadow: 4px 4px 0 #111111; }
 .pg-title, .cv-title { letter-spacing: -.01em; }
+
+/* Cover: poster shapes with hard outlines, a ruled-off band */
+.cv-deco { right: -56px; top: -78px; width: 176px; height: 176px; }
+.wx-cover.wide .cv-deco { width: 330px; height: 330px; right: -50px; }
+.wx-cover.wide .cv-deco i:nth-child(2) { left: -4%; bottom: 4%; }
+.wx-cover.wide .cv-deco i:nth-child(3) { left: 4%; bottom: 62%; }
+.cv-deco i:nth-child(1) { border: 3px solid #111111; opacity: 1; background: var(--accent-2); box-shadow: 6px 6px 0 #111111; }
+.cv-deco i:nth-child(2) { inset: auto; left: -22%; bottom: 14%; width: 30%; height: 30%; border: 3px solid #111111; border-radius: 0; opacity: 1; background: var(--accent-3); transform: rotate(12deg); }
+.cv-deco i:nth-child(3) { left: -44%; bottom: 44%; width: 10%; height: 10%; background: #111111; }
+.cv-band { border-top: 4px solid #111111; }
+/* The marker block behind the key words needs room, or it covers the line above */
+.cv-hook .cv-title { line-height: 1.3; }
+.cv-chips span { border: 2px solid #111111; background: #FFFFFF; border-radius: 4px; box-shadow: 2px 2px 0 #111111; }
+.card.c-quote { border: 0; }
+.card.c-quote .cq-text { text-shadow: 3px 3px 0 #FFFFFF; }
+.cq-mark, .cv-qmark { opacity: 1; color: #111111; }
+.cv-vs-col { border: 3px solid #111111 !important; box-shadow: 5px 5px 0 #111111; }
+.cv-num b, .cn-num b { -webkit-text-stroke: 0; text-shadow: 5px 5px 0 var(--acc); }

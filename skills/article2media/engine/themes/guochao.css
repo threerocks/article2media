@@ -88,3 +88,17 @@
 .end-cta { background: #B01E17; color: #FFE7B0; letter-spacing: .14em; box-shadow: inset 0 0 0 3px #B01E17, inset 0 0 0 4px var(--gold); }
 .pg-closing { border-top: 2px solid #2A1712; border-bottom: 2px solid #2A1712; }
 .pg-brand-name { color: #B01E17; }
+
+/* Cover: a gold sun behind the headline, a vermilion band edged with 回纹 */
+.cv-deco { right: -60px; top: -60px; width: 250px; height: 250px; }
+.cv-deco i:nth-child(1) { background: var(--gold); opacity: .32; }
+.cv-deco i:nth-child(2) { inset: 9%; border: 2px solid var(--gold); opacity: .7; }
+.cv-deco i:nth-child(3) { display: none; }
+.cv-band, .cv-hook .c-foot { background-color: #B01E17; color: #FFE7B0; }
+.cv-band { background-image: var(--gc-fret-gold); background-size: 15px 10px; background-repeat: repeat-x; background-position: left 8px; padding-top: 30px; }
+.cv-chips span { border-radius: 3px; border-width: 1px; }
+.card.c-quote { box-shadow: inset 0 0 0 10px var(--acc), inset 0 0 0 12px color-mix(in srgb, var(--gold) 80%, transparent); }
+.card.c-quote::after { display: none; }
+.cq-mark { color: var(--gold); opacity: 1; }
+.cv-vs-col { border-radius: 3px; }
+.cv-vs-mid { background: var(--gold); color: #2A1712; }

@@ -78,3 +78,24 @@
 .pg-closing { letter-spacing: .06em; font-weight: 400; }
 .pg-closing b { color: var(--subtitle); }
 .pg-brand-name { letter-spacing: .1em; }
+
+/* Cover: keep the letterbox; the deck reads like a subtitle */
+.cv-deco { display: none; }
+.cv-hook { padding-bottom: 20px; }
+.cv-hook .c-body { margin: 0; padding: 30px 0 0; }
+.cv-band { background: transparent; color: var(--subtitle); margin: auto 0 0; padding: 16px 0 14px; border-top: 1px solid #3A342E; text-align: center; }
+.cv-band .cv-sub { font-weight: 500; letter-spacing: .04em; text-shadow: 0 1px 8px rgba(0, 0, 0, .8); }
+.cv-chips { justify-content: center; }
+.cv-chips span { border: 0; color: #8C847A; font-family: var(--font-label), var(--font-body); font-weight: 500; padding: 0 6px; }
+.cv-chips span + span::before { content: "/"; margin-right: 12px; opacity: .6; }
+.cv-hook .c-foot { margin: 0 -30px -20px; padding: 12px 30px 18px; color: #8C847A; background: repeating-linear-gradient(90deg, rgba(237, 231, 221, .22) 0 9px, transparent 9px 22px) left 4px bottom 5px / 100% 5px no-repeat, #000000; }
+.cv-hook .c-foot span { opacity: 1; }
+.card.c-quote { background: #000000; color: var(--subtitle); }
+.card.c-quote .c-top, .card.c-quote .c-foot { color: #8C847A; opacity: 1; }
+.card.c-quote .sec-label { border: 0; color: var(--subtitle); }
+.card.c-quote .cq { text-align: center; align-items: center; }
+.card.c-quote .cq-text { font-weight: 600; letter-spacing: .06em; }
+.cq-mark { display: none; }
+.cv-vs-col.yes { background: transparent; color: var(--subtitle); border: 1px solid var(--subtitle); }
+.cv-vs-col.no { background: transparent; border: 1px solid #3A342E; }
+.cv-vs-mid { background: var(--subtitle); color: #000000; }

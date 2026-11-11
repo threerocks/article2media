@@ -15,7 +15,9 @@ const content = path.resolve(process.argv[2] || path.join(ROOT, 'skills', 'artic
 const out = path.resolve(process.argv[3] || path.join(ROOT, 'docs', 'themes.jpg'));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'a2i-sheet-'));
 
-const themes = fs.readdirSync(path.join(SKILL, 'themes')).filter((f) => f.endsWith('.css')).map((f) => f.slice(0, -4)).sort();
+// The main themes, in catalog order (`--legacy` draws the legacy ones instead).
+const catalog = JSON.parse(fs.readFileSync(path.join(SKILL, 'themes', 'catalog.json'), 'utf8'));
+const themes = process.argv.includes('--legacy') ? Object.keys(catalog.legacy) : catalog.main;
 const desc = Object.fromEntries(themes.map((t) => {
   const line = fs.readFileSync(path.join(SKILL, 'themes', `${t}.css`), 'utf8').split('\n')[0];
   return [t, (line.match(/\|\s*([^：:；]+)/) || [])[1]?.trim() || ''];
