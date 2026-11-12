@@ -13,6 +13,17 @@ import { TRANSITIONS, prepareClips, buildBed } from './media.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SKILL = path.resolve(HERE, '..', '..', '..');
+
+// amix only grew `normalize` in ffmpeg 5.1. An older build (a bundled 2020 static binary is common on
+// Windows) rejects the whole filter graph with "Option 'normalize' not found", so probe once and drop it.
+let amixNormalize;
+const amixOpt = () => {
+  if (amixNormalize === undefined) {
+    const r = spawnSync('ffmpeg', ['-hide_banner', '-h', 'filter=amix'], { encoding: 'utf8' });
+    amixNormalize = /normalize/.test(`${r.stdout || ''}${r.stderr || ''}`) ? ':normalize=0' : '';
+  }
+  return amixNormalize;
+};
 const readCss = (n) => fs.readFileSync(path.join(SKILL, 'layouts', n), 'utf8');
 
 export const TIMING = { coverHold: 0.5, coverFade: 0.25, voiceLead: 0.05, tail: 1.6, sceneLead: 0.2, fps: 30 };
@@ -436,7 +447,7 @@ export async function renderVideo(video, align, opts) {
   const mixRaw = path.join(out, 'mix-raw.wav');
   const ms = Math.round(VO * 1000);
   ff(['-i', voicePath, '-i', path.join(out, 'sfx.wav'), '-filter_complex',
-    `[0:a]aresample=48000,aformat=channel_layouts=stereo,adelay=${ms}|${ms},apad=whole_dur=${total}[v];[1:a]aresample=48000,volume=-6dB[s];[v][s]amix=inputs=2:normalize=0:duration=first[a]`,
+    `[0:a]aresample=48000,aformat=channel_layouts=stereo,adelay=${ms}|${ms},apad=whole_dur=${total}[v];[1:a]aresample=48000,volume=-6dB[s];[v][s]amix=inputs=2${amixOpt()}:duration=first[a]`,
     '-map', '[a]', '-t', String(total), mixRaw]);
   const mixPath = path.join(out, 'mix.wav');
   const loud = loudnorm(mixRaw, mixPath);

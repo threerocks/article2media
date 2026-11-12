@@ -47,7 +47,9 @@ console.log('== Skills');
   for (const d of dirs) {
     const f = path.join(SKILLS, d, 'SKILL.md');
     if (!fs.existsSync(f)) { bad.push(`${d}: 没有 SKILL.md`); continue; }
-    const fm = fs.readFileSync(f, 'utf8').match(/^---\n([\s\S]*?)\n---/)?.[1] || '';
+    // Normalise CRLF first: on a Windows checkout every SKILL.md is CRLF and the bare `\n` pattern
+    // matched nothing, so all 11 skills reported "name 是 undefined" while the CLIs worked fine.
+    const fm = fs.readFileSync(f, 'utf8').replace(/\r\n/g, '\n').match(/^---\n([\s\S]*?)\n---/)?.[1] || '';
     const get = (k) => fm.match(new RegExp(`^${k}:\\s*(.*)$`, 'm'))?.[1]?.replace(/^"|"$/g, '');
     if (get('name') !== d) bad.push(`${d}: name 是 ${get('name')}`);
     if (get('version') !== plugin.version) bad.push(`${d}: version ${get('version')} ≠ ${plugin.version}`);

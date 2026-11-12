@@ -14,10 +14,12 @@ export const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('h
 
 /** Split YAML-ish front matter (fetch.mjs output) from the body. */
 export function frontMatter(src) {
-  const m = src.match(/^---\n([\s\S]*?)\n---\n?/);
+  // \r?\n: a file saved by a Windows editor (CRLF) is the normal case there; matching only "\n" silently
+  // dropped the whole front matter, so 公众号 reported "文章没有标题" and the footer lost author/date.
+  const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
   if (!m) return { meta: {}, body: src };
   const meta = {};
-  for (const line of m[1].split('\n')) {
+  for (const line of m[1].split(/\r?\n/)) {
     const kv = line.match(/^(\w+):\s*(.*)$/);
     if (!kv) continue;
     // Values are written with JSON.stringify (fetch.mjs, export.mjs): decode escapes such as \n and \".
@@ -142,20 +144,35 @@ export function parseBlocks(body, { title, boldHeadings = true } = {}) {
 
 /** Plain text of the source as a reader sees it (markdown syntax removed), for the parser coverage check. */
 export function sourcePlain(body) {
-  return body
-    .replace(/\r\n?/g, '\n')
+  // Block markers are stripped line by line, and a heading is decided before list markers are considered
+  // (see below): "### 1. 先读懂" carries "1." as title text, exactly as parseBlocks keeps it. Stripping
+  // "#" first and then a leading "1." used to eat the number and fail the parser-coverage check.
+  // Literal text keeps its characters: parseBlocks hands the reader the inside of `code` verbatim, so a
+  // `***…***` in backticks must not be un-emphasised here (it used to) or the two sides disagree.
+  const keep = [];
+  const stash = (s) => { keep.push(s); return `\uE000${keep.length - 1}\uE001`; };
+  const guarded = body
+    .replace(/^```[^\n]*\n([\s\S]*?)^```\s*$/gm, (_, c) => stash(c))
+    .replace(/`([^`]+)`/g, (_, c) => stash(c));
+  const stripped = guarded.replace(/\r\n?/g, '\n').split('\n').map((l) => {
+    const h = l.match(/^\s*#{1,6}\s+(.*)$/);
+    if (h) return h[1];
+    const li = l.match(/^\s*([-*+]|\d+[.)])\s+(.*)$/);
+    if (li) return li[2];
+    return l;
+  }).join('\n');
+  return stripped
     .replace(/^```.*$/gm, '')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/^\s*#{1,6}\s+/gm, '')
     .replace(/^\s*>\s?/gm, '')
-    .replace(/^\s*([-*+]|\d+[.)])\s+/gm, '')
     .replace(/^\s*\|?\s*:?-{2,}[-:|\s]*$/gm, '')
     .replace(/\|/g, '')
     .replace(/^\s*(-{3,}|\*{3,}|_{3,})\s*$/gm, '')
     .replace(/\*\*|__|`/g, '')
     .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*/g, '$1$2')
-    .replace(/\\([\\`*_{}\[\]()#+\-.!>])/g, '$1');
+    .replace(/\\([\\`*_{}\[\]()#+\-.!>])/g, '$1')
+    .replace(/\uE000(\d+)\uE001/g, (_, n) => keep[Number(n)]);
 }
 export const squash = (s) => String(s).replace(/\s+/g, '');
 
